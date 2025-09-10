@@ -36,51 +36,67 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/android-sdk
+          key: ${{ runner.os }}-android-sdk-${{ hashFiles('**/build.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+
       - name: Install prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip wget gradle
-
-      - name: Install Android SDK command-line tools
-        run: |
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT
-          wget https://dl.google.com/android/repository/commandlinetools-linux-latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
-          # Ensure latest layout
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ || true
-          rm cmdline-tools.zip || true
+          sudo apt-get install -y unzip wget curl
         shell: bash
 
-      - name: Accept licenses and install SDK packages
+      - name: Install Android SDK command-line tools (dynamic lookup)
         run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
+          set -euo pipefail
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          cd "$ANDROID_SDK_ROOT"
+
+          repo_xml=$(mktemp)
+          curl -sS https://dl.google.com/android/repository/repository2-1.xml -o "$repo_xml" || true
+          zip_name=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\\.zip' "$repo_xml" | sort -V | tail -n1 || true)
+
+          if [ -z "$zip_name" ]; then
+            echo "Could not find latest zip in manifest, falling back"
+            zip_name="commandlinetools-linux-13114758_latest.zip"
+          fi
+
+          echo "Downloading $zip_name"
+          wget "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip
+
+          unzip -qo cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/" || true
+          rm -f cmdline-tools.zip || true
         shell: bash
 
-      - name: Verify Gradle/Gradlew
+      - name: Install SDK packages and accept licenses
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+        shell: bash
+
+      - name: Build debug APK
         run: |
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            echo "Using project Gradle wrapper"
+            ./gradlew --no-daemon assembleDebug
           else
-            echo "No gradlew wrapper found; using system gradle"
-          fi
-
-      - name: Build debug APK
-        working-directory: ./
-        run: |
-          if [ -f ./gradlew ]; then
-            ./gradlew --no-daemon assembleDebug --stacktrace
-          else
-            gradle assembleDebug --no-daemon --stacktrace
+            echo "Gradle wrapper not found; please add ./gradlew to project"
+            exit 1
           fi
         shell: bash
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: the-loop-apk
+          name: the-loop-debug-apk
           path: app/build/outputs/apk/**/app*-debug*.apk
 
 # Notes and follow-ups (keep a copy in your repo or README):
