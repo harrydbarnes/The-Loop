@@ -1,34 +1,109 @@
-name: Android CI
+# GitHub Actions workflow to build an Android APK for The-Loop
+# Save this file as .github/workflows/android-build.yml in your repo
+# It will produce an unsigned debug APK and upload it as a workflow artifact.
+
+name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ feature/initial-app-build-with-personalization, main ]
+  workflow_dispatch: {}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/android-sdk
+      JAVA_HOME_11: /usr/lib/jvm/java-11-openjdk-amd64
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: 'gradle'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - name: Grant execute permission to gradlew
-      run: chmod +x gradlew
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-    - name: Build with Gradle
-      run: ./gradlew build
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip wget gradle
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
-      with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Install Android SDK command-line tools
+        run: |
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd $ANDROID_SDK_ROOT
+          wget https://dl.google.com/android/repository/commandlinetools-linux-121-1.0.1.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          # Ensure latest layout
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ || true
+          rm cmdline-tools.zip || true
+        shell: bash
+
+      - name: Accept licenses and install SDK packages
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
+        shell: bash
+
+      - name: Verify Gradle/Gradlew
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            echo "Using project Gradle wrapper"
+          else
+            echo "No gradlew wrapper found; using system gradle"
+          fi
+
+      - name: Build debug APK
+        working-directory: ./
+        run: |
+          if [ -f ./gradlew ]; then
+            ./gradlew --no-daemon assembleDebug --stacktrace
+          else
+            gradle assembleDebug --no-daemon --stacktrace
+          fi
+        shell: bash
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-loop-apk
+          path: app/build/outputs/apk/**/app*-debug*.apk
+
+# Notes and follow-ups (keep a copy in your repo or README):
+# 1) This workflow produces an unsigned debug APK. If you want a release APK that is
+#    signed with your key, you should add a signing step and store the signing key
+#    and passwords as GitHub Secrets (see comment below in the repo instructions).
+# 2) If your project requires a specific compileSdkVersion or build tools, update
+#    the "platforms;android-33" and "build-tools;33.0.2" lines above to match.
+# 3) To produce a signed release APK, add a Gradle signing configuration and use
+#    the "actions/upload-artifact" step to upload the release output.
+
+# Local build instructions (short):
+# 1) Install Android Studio or Android SDK (cmdline-tools) and Java 17.
+# 2) In the repo root run (recommended using the Gradle wrapper if you add it):
+#      ./gradlew assembleDebug
+#    or if you don't have a wrapper:
+#      gradle assembleDebug
+# 3) The debug APK will be at: app/build/outputs/apk/debug/app-debug.apk
+
+# Optional: to add signing for release builds, add the following to your repo's
+# gradle.properties (store secrets in GitHub Secrets instead for CI):
+#   SIGNING_KEYSTORE_PASSWORD=***
+#   SIGNING_KEY_PASSWORD=***
+#   SIGNING_KEY_ALIAS=***
+#   SIGNING_KEYSTORE_BASE64=***
+# Then decode and write the keystore file in CI and sign with Gradle.
