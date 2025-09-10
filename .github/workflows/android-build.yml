@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ANDROID_SDK_ROOT: /usr/local/android-sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
       JAVA_HOME_11: /usr/lib/jvm/java-11-openjdk-amd64
 
     steps:
