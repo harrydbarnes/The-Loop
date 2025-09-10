@@ -50,7 +50,7 @@ jobs:
           sudo apt-get install -y unzip wget curl
         shell: bash
 
-      - name: Install Android SDK command-line tools (dynamic lookup)
+      - name: Install Android SDK command-line tools (dynamic lookup with retry)
         run: |
           set -euo pipefail
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
@@ -66,7 +66,9 @@ jobs:
           fi
 
           echo "Downloading $zip_name"
-          wget "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip
+          for i in 1 2 3; do
+            wget -q "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip && break || sleep 5
+          done
 
           unzip -qo cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
@@ -78,15 +80,16 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses || true
         shell: bash
 
       - name: Build debug APK
         run: |
+          export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon --stacktrace assembleDebug || ./gradlew --no-daemon assembleDebug
           else
             echo "Gradle wrapper not found; please add ./gradlew to project"
             exit 1
@@ -98,6 +101,7 @@ jobs:
         with:
           name: the-loop-debug-apk
           path: app/build/outputs/apk/**/app*-debug*.apk
+
 
 # Notes and follow-ups (keep a copy in your repo or README):
 # 1) This workflow produces an unsigned debug APK. If you want a release APK that is
