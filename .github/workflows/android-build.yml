@@ -13,7 +13,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
       JAVA_HOME_11: /usr/lib/jvm/java-11-openjdk-amd64
 
     steps:
@@ -39,7 +38,7 @@ jobs:
       - name: Cache Android SDK
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/android-sdk
+          path: ${{ env.ANDROID_HOME }}
           key: ${{ runner.os }}-android-sdk-${{ hashFiles('**/build.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-android-sdk-
@@ -53,8 +52,8 @@ jobs:
       - name: Install Android SDK command-line tools (dynamic lookup with retry)
         run: |
           set -euo pipefail
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          cd "$ANDROID_SDK_ROOT"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          cd "$ANDROID_HOME"
 
           repo_xml=$(mktemp)
           curl -sS https://dl.google.com/android/repository/repository2-1.xml -o "$repo_xml" || true
@@ -70,23 +69,23 @@ jobs:
             wget -q "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip && break || sleep 5
           done
 
-          unzip -qo cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/" || true
+          unzip -qo cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools/"* "$ANDROID_HOME/cmdline-tools/latest/" || true
           rm -f cmdline-tools.zip || true
         shell: bash
 
       - name: Install SDK packages and accept licenses
         run: |
           set -euo pipefail
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses || true
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" --licenses || true
         shell: bash
 
       - name: Build debug APK
         run: |
-          export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
             ./gradlew --no-daemon --stacktrace assembleDebug || ./gradlew --no-daemon assembleDebug
@@ -101,6 +100,7 @@ jobs:
         with:
           name: the-loop-debug-apk
           path: app/build/outputs/apk/**/app*-debug*.apk
+
 
 
 # Notes and follow-ups (keep a copy in your repo or README):
