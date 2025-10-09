@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -79,6 +80,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String SECTION_FUN_FACT = "fun_fact";
     private static final String DEFAULT_SECTION_ORDER = String.join(",", SECTION_HEADLINES, SECTION_CALENDAR, SECTION_FUN_FACT);
     private static final long CARD_ANIMATION_STAGGER_OFFSET_MS = 100L;
+    private static final double DEFAULT_LATITUDE = 37.77;
+    private static final double DEFAULT_LONGITUDE = -122.42;
 
 
     // View variables...
@@ -227,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchLocationAndThenWeatherData() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherData(37.77, -122.42); // Default: SF
+            fetchWeatherForDefaultLocation();
             return;
         }
         fusedLocationClient.getLastLocation()
@@ -235,14 +238,18 @@ public class MainActivity extends AppCompatActivity {
                     if (location != null) {
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
                     } else {
-                        Log.w(TAG, "Last location is null, using default.");
-                        fetchWeatherData(37.77, -122.42); // Default: SF
+                        fetchWeatherForDefaultLocation();
                     }
                 })
                 .addOnFailureListener(this, e -> {
                     Log.e(TAG, "Failed to get location.", e);
-                    fetchWeatherData(37.77, -122.42); // Default: SF
+                    fetchWeatherForDefaultLocation();
                 });
+    }
+
+    private void fetchWeatherForDefaultLocation() {
+        Log.w(TAG, "Using default location.");
+        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
     }
 
     private void initViews() {
@@ -391,7 +398,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadCalendarData(View cardView) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CALENDAR)) {
+                // Show an explanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            }
         } else {
             queryCalendarEvents(cardView);
         }
@@ -458,11 +471,12 @@ public class MainActivity extends AppCompatActivity {
 
             if (cursor != null) {
                 while (cursor.moveToNext() && events.size() < 3) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events._ID));
                     String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE));
                     long startTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));
                     long endTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND));
                     String location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION));
-                    events.add(new CalendarEvent(title, startTime, endTime, location));
+                    events.add(new CalendarEvent(id, title, startTime, endTime, location));
                 }
                 cursor.close();
             }
@@ -499,6 +513,18 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     location.setVisibility(View.GONE);
                 }
+
+                eventView.setOnClickListener(v -> {
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                    intent.setData(uri);
+                    try {
+                        startActivity(intent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        Toast.makeText(this, "No calendar app found.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
                 viewHolder.eventsContainer.addView(eventView);
             }
         }
