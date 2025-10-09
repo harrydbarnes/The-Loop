@@ -9,7 +9,6 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -183,9 +182,45 @@ public class MainActivity extends AppCompatActivity {
     private void loadDataForCurrentUser() {
         updateDayAheadCard();
         fetchLocationAndThenWeatherData();
-        fetchNewsData();
-        loadCalendarData();
-        loadFunFact();
+        setupCards();
+    }
+
+    private void setupCards() {
+        LinearLayout cardsContainer = findViewById(R.id.cards_container);
+        if (cardsContainer.getChildCount() > 1) {
+            cardsContainer.removeViews(1, cardsContainer.getChildCount() - 1);
+        }
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String order = prefs.getString("section_order", "headlines,calendar,fun_fact");
+        String[] sections = order.split(",");
+
+        for (int i = 0; i < sections.length; i++) {
+            View cardView = null;
+            switch (sections[i]) {
+                case "headlines":
+                    cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
+                    initHeadlinesCard(cardView);
+                    fetchNewsData();
+                    break;
+                case "calendar":
+                    cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
+                    initCalendarCard(cardView);
+                    loadCalendarData();
+                    break;
+                case "fun_fact":
+                    cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
+                    initFunFactCard(cardView);
+                    loadFunFact();
+                    break;
+            }
+            if (cardView != null) {
+                Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
+                animation.setStartOffset(i * 100L);
+                cardView.startAnimation(animation);
+                cardsContainer.addView(cardView);
+            }
+        }
     }
 
     private void fetchLocationAndThenWeatherData() {
@@ -219,13 +254,22 @@ public class MainActivity extends AppCompatActivity {
         currentConditions = findViewById(R.id.current_conditions);
         highLowTemp = findViewById(R.id.high_low_temp);
         dailyForecast = findViewById(R.id.daily_forecast);
-        headlinesProgressBar = findViewById(R.id.headlines_progress_bar);
-        headlinesErrorText = findViewById(R.id.headlines_error_text);
-        headlinesContainer = findViewById(R.id.headlines_container);
-        calendarPermissionDeniedText = findViewById(R.id.calendar_permission_denied_text);
-        calendarNoEventsText = findViewById(R.id.calendar_no_events_text);
-        calendarEventsContainer = findViewById(R.id.calendar_events_container);
-        funFactText = findViewById(R.id.fun_fact_text);
+    }
+
+    private void initHeadlinesCard(View cardView) {
+        headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
+        headlinesErrorText = cardView.findViewById(R.id.headlines_error_text);
+        headlinesContainer = cardView.findViewById(R.id.headlines_container);
+    }
+
+    private void initCalendarCard(View cardView) {
+        calendarPermissionDeniedText = cardView.findViewById(R.id.calendar_permission_denied_text);
+        calendarNoEventsText = cardView.findViewById(R.id.calendar_no_events_text);
+        calendarEventsContainer = cardView.findViewById(R.id.calendar_events_container);
+    }
+
+    private void initFunFactCard(View cardView) {
+        funFactText = cardView.findViewById(R.id.fun_fact_text);
     }
 
     private boolean isNetworkAvailable() {
@@ -282,6 +326,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchNewsData() {
+        if (headlinesContainer == null) return;
         if (!isNetworkAvailable()) {
             loadNewsFromCache();
             return;
@@ -321,6 +366,8 @@ public class MainActivity extends AppCompatActivity {
             NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
             if (cachedResponse != null && cachedResponse.getArticles() != null) {
                 populateHeadlinesCard(cachedResponse.getArticles());
+            } else {
+                headlinesErrorText.setVisibility(View.VISIBLE);
             }
         } else {
             headlinesErrorText.setVisibility(View.VISIBLE);
@@ -336,6 +383,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadFunFact() {
+        if (funFactText == null) return;
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
@@ -355,6 +403,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadCalendarData() {
+        if (calendarEventsContainer == null) return;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
         } else {
