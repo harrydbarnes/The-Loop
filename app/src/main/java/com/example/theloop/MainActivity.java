@@ -51,8 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -72,6 +71,14 @@ public class MainActivity extends AppCompatActivity {
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
 
+    private static final String KEY_SECTION_ORDER = "section_order";
+    private static final String SECTION_HEADLINES = "headlines";
+    private static final String SECTION_CALENDAR = "calendar";
+    private static final String SECTION_FUN_FACT = "fun_fact";
+    private static final String DEFAULT_SECTION_ORDER = String.join(",", SECTION_HEADLINES, SECTION_CALENDAR, SECTION_FUN_FACT);
+    private static final long CARD_ANIMATION_STAGGER_OFFSET_MS = 100L;
+
+
     // View variables...
     private TextView greetingTextView;
     private TextView summaryTextView;
@@ -83,15 +90,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView currentConditions;
     private TextView highLowTemp;
     private TextView dailyForecast;
-    private ProgressBar headlinesProgressBar;
-    private TextView headlinesErrorText;
-    private LinearLayout headlinesContainer;
-    private TextView calendarPermissionDeniedText;
-    private TextView calendarNoEventsText;
-    private LinearLayout calendarEventsContainer;
-    private TextView funFactText;
-    private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationClient;
+    private Gson gson = new Gson();
     private int selectedNewsCategoryIndex = 2; // Default to "general"
     private Runnable onLocationPermissionGranted;
 
@@ -132,20 +132,20 @@ public class MainActivity extends AppCompatActivity {
         final EditText nameEditText = dialogView.findViewById(R.id.name_edit_text);
 
         new AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setTitle("Welcome to The Loop!")
-            .setPositiveButton("Save", (dialog, which) -> {
-                String name = nameEditText.getText().toString();
-                if (!TextUtils.isEmpty(name)) {
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit()
-                        .putString(KEY_USER_NAME, name)
-                        .apply();
-                }
-                onFinished.run();
-            })
-            .setCancelable(false)
-            .show();
+                .setView(dialogView)
+                .setTitle("Welcome to The Loop!")
+                .setPositiveButton("Save", (dialog, which) -> {
+                    String name = nameEditText.getText().toString();
+                    if (!TextUtils.isEmpty(name)) {
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                                .edit()
+                                .putString(KEY_USER_NAME, name)
+                                .apply();
+                    }
+                    onFinished.run();
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void requestLocationPermission(Runnable onGranted) {
@@ -163,20 +163,20 @@ public class MainActivity extends AppCompatActivity {
         final String[] categories = {"Business", "Entertainment", "General", "Health", "Science", "Sports", "Technology"};
 
         new AlertDialog.Builder(this)
-            .setTitle("Choose a News Category")
-            .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> {
-                selectedNewsCategoryIndex = which;
-            })
-            .setPositiveButton("Save", (dialog, which) -> {
-                String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .edit()
-                    .putString(KEY_NEWS_CATEGORY, selectedCategory)
-                    .apply();
-                onFinished.run();
-            })
-            .setCancelable(false)
-            .show();
+                .setTitle("Choose a News Category")
+                .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> {
+                    selectedNewsCategoryIndex = which;
+                })
+                .setPositiveButton("Save", (dialog, which) -> {
+                    String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                            .edit()
+                            .putString(KEY_NEWS_CATEGORY, selectedCategory)
+                            .apply();
+                    onFinished.run();
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void loadDataForCurrentUser() {
@@ -187,41 +187,38 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupCards() {
         LinearLayout cardsContainer = findViewById(R.id.cards_container);
-        if (cardsContainer.getChildCount() > 1) {
-            cardsContainer.removeViews(1, cardsContainer.getChildCount() - 1);
-        }
+        cardsContainer.removeAllViews();
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String order = prefs.getString("section_order", "headlines,calendar,fun_fact");
-        String[] sections = order.split(",");
+        String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        List<String> sections = Arrays.asList(order.split(","));
 
-        for (int i = 0; i < sections.length; i++) {
+        for (int i = 0; i < sections.size(); i++) {
+            String section = sections.get(i);
             View cardView = null;
-            switch (sections[i]) {
-                case "headlines":
+            switch (section) {
+                case SECTION_HEADLINES:
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
-                    initHeadlinesCard(cardView);
-                    fetchNewsData();
+                    fetchNewsData(cardView);
                     break;
-                case "calendar":
+                case SECTION_CALENDAR:
                     cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
-                    initCalendarCard(cardView);
-                    loadCalendarData();
+                    loadCalendarData(cardView);
                     break;
-                case "fun_fact":
+                case SECTION_FUN_FACT:
                     cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
-                    initFunFactCard(cardView);
-                    loadFunFact();
+                    loadFunFact(cardView);
                     break;
             }
             if (cardView != null) {
                 Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
-                animation.setStartOffset(i * 100L);
+                animation.setStartOffset(i * CARD_ANIMATION_STAGGER_OFFSET_MS);
                 cardView.startAnimation(animation);
                 cardsContainer.addView(cardView);
             }
         }
     }
+
 
     private void fetchLocationAndThenWeatherData() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -229,18 +226,18 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         fusedLocationClient.getLastLocation()
-            .addOnSuccessListener(this, location -> {
-                if (location != null) {
-                    fetchWeatherData(location.getLatitude(), location.getLongitude());
-                } else {
-                    Log.w(TAG, "Last location is null, using default.");
+                .addOnSuccessListener(this, location -> {
+                    if (location != null) {
+                        fetchWeatherData(location.getLatitude(), location.getLongitude());
+                    } else {
+                        Log.w(TAG, "Last location is null, using default.");
+                        fetchWeatherData(37.77, -122.42); // Default: SF
+                    }
+                })
+                .addOnFailureListener(this, e -> {
+                    Log.e(TAG, "Failed to get location.", e);
                     fetchWeatherData(37.77, -122.42); // Default: SF
-                }
-            })
-            .addOnFailureListener(this, e -> {
-                Log.e(TAG, "Failed to get location.", e);
-                fetchWeatherData(37.77, -122.42); // Default: SF
-            });
+                });
     }
 
     private void initViews() {
@@ -254,22 +251,6 @@ public class MainActivity extends AppCompatActivity {
         currentConditions = findViewById(R.id.current_conditions);
         highLowTemp = findViewById(R.id.high_low_temp);
         dailyForecast = findViewById(R.id.daily_forecast);
-    }
-
-    private void initHeadlinesCard(View cardView) {
-        headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
-        headlinesErrorText = cardView.findViewById(R.id.headlines_error_text);
-        headlinesContainer = cardView.findViewById(R.id.headlines_container);
-    }
-
-    private void initCalendarCard(View cardView) {
-        calendarPermissionDeniedText = cardView.findViewById(R.id.calendar_permission_denied_text);
-        calendarNoEventsText = cardView.findViewById(R.id.calendar_no_events_text);
-        calendarEventsContainer = cardView.findViewById(R.id.calendar_events_container);
-    }
-
-    private void initFunFactCard(View cardView) {
-        funFactText = cardView.findViewById(R.id.fun_fact_text);
     }
 
     private boolean isNetworkAvailable() {
@@ -325,10 +306,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void fetchNewsData() {
-        if (headlinesContainer == null) return;
+    private void fetchNewsData(View cardView) {
+        final ProgressBar headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
+
         if (!isNetworkAvailable()) {
-            loadNewsFromCache();
+            loadNewsFromCache(cardView);
             return;
         }
 
@@ -343,29 +325,32 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<NewsResponse> call, Response<NewsResponse> response) {
                 headlinesProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null && response.body().getArticles() != null) {
-                    populateHeadlinesCard(response.body().getArticles());
+                    populateHeadlinesCard(cardView, response.body().getArticles());
                     saveToCache(NEWS_CACHE_KEY, response.body());
                 } else {
-                    loadNewsFromCache();
+                    loadNewsFromCache(cardView);
                 }
             }
 
             @Override
             public void onFailure(Call<NewsResponse> call, Throwable t) {
                 Log.e(TAG, "News API call failed.", t);
-                loadNewsFromCache();
+                loadNewsFromCache(cardView);
             }
         });
     }
 
-    private void loadNewsFromCache() {
+    private void loadNewsFromCache(View cardView) {
+        final ProgressBar headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
+        final TextView headlinesErrorText = cardView.findViewById(R.id.headlines_error_text);
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
         headlinesProgressBar.setVisibility(View.GONE);
         if (cachedJson != null) {
             NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
             if (cachedResponse != null && cachedResponse.getArticles() != null) {
-                populateHeadlinesCard(cachedResponse.getArticles());
+                populateHeadlinesCard(cardView, cachedResponse.getArticles());
             } else {
                 headlinesErrorText.setVisibility(View.VISIBLE);
             }
@@ -382,8 +367,8 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
-    private void loadFunFact() {
-        if (funFactText == null) return;
+    private void loadFunFact(View cardView) {
+        final TextView funFactText = cardView.findViewById(R.id.fun_fact_text);
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
@@ -402,12 +387,11 @@ public class MainActivity extends AppCompatActivity {
         summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
     }
 
-    private void loadCalendarData() {
-        if (calendarEventsContainer == null) return;
+    private void loadCalendarData(View cardView) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
         } else {
-            queryCalendarEvents();
+            queryCalendarEvents(cardView);
         }
     }
 
@@ -416,11 +400,15 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                queryCalendarEvents();
+                setupCards();
             } else {
-                calendarPermissionDeniedText.setVisibility(View.VISIBLE);
-                calendarEventsContainer.setVisibility(View.GONE);
-                calendarNoEventsText.setVisibility(View.GONE);
+                LinearLayout cardsContainer = findViewById(R.id.cards_container);
+                View calendarCard = cardsContainer.findViewWithTag(SECTION_CALENDAR);
+                if (calendarCard != null) {
+                    calendarCard.findViewById(R.id.calendar_permission_denied_text).setVisibility(View.VISIBLE);
+                    calendarCard.findViewById(R.id.calendar_events_container).setVisibility(View.GONE);
+                    calendarCard.findViewById(R.id.calendar_no_events_text).setVisibility(View.GONE);
+                }
             }
         } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -436,7 +424,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void queryCalendarEvents() {
+    private void queryCalendarEvents(View cardView) {
         new Thread(() -> {
             List<CalendarEvent> events = new ArrayList<>();
             ContentResolver contentResolver = getContentResolver();
@@ -467,11 +455,14 @@ public class MainActivity extends AppCompatActivity {
                 cursor.close();
             }
 
-            runOnUiThread(() -> populateCalendarCard(events));
+            runOnUiThread(() -> populateCalendarCard(cardView, events));
         }).start();
     }
 
-    private void populateCalendarCard(List<CalendarEvent> events) {
+    private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
+        final LinearLayout calendarEventsContainer = cardView.findViewById(R.id.calendar_events_container);
+        final TextView calendarNoEventsText = cardView.findViewById(R.id.calendar_no_events_text);
+
         calendarEventsContainer.removeAllViews();
         if (events.isEmpty()) {
             calendarNoEventsText.setVisibility(View.VISIBLE);
@@ -543,7 +534,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    void populateHeadlinesCard(List<Article> articles) {
+    void populateHeadlinesCard(View cardView, List<Article> articles) {
+        final LinearLayout headlinesContainer = cardView.findViewById(R.id.headlines_container);
         headlinesContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
