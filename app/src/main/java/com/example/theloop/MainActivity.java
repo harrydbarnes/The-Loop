@@ -52,6 +52,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -204,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case SECTION_CALENDAR:
                     cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
-                    cardView.setTag(SECTION_CALENDAR);
+                    cardView.setTag(new CalendarViewHolder(cardView));
                     loadCalendarData(cardView);
                     break;
                 case SECTION_FUN_FACT:
@@ -400,7 +402,15 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             LinearLayout cardsContainer = findViewById(R.id.cards_container);
-            View calendarCard = cardsContainer.findViewWithTag(SECTION_CALENDAR);
+            View calendarCard = null;
+            for (int i = 0; i < cardsContainer.getChildCount(); i++) {
+                View child = cardsContainer.getChildAt(i);
+                if (child.getTag() instanceof CalendarViewHolder) {
+                    calendarCard = child;
+                    break;
+                }
+            }
+
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 if (calendarCard != null) {
                     queryCalendarEvents(calendarCard);
