@@ -18,11 +18,14 @@
         <!-- Weather Card -->
         <include layout="@layout/card_weather" />
 
-        <LinearLayout
-            android:id="@+id/cards_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
+        <!-- Headlines Card -->
+        <include layout="@layout/card_headlines" />
+
+        <!-- Calendar Card -->
+        <include layout="@layout/card_calendar" />
+
+        <!-- Fun Fact Card -->
+        <include layout="@layout/card_fun_fact" />
 
     </LinearLayout>
 </ScrollView>
