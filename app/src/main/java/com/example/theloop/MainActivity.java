@@ -2,6 +2,7 @@ package com.example.theloop;
 
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -51,6 +52,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -67,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int CALENDAR_PERMISSION_REQUEST_CODE = 100;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
+    private static final long CARD_ANIMATION_STAGGER_DELAY_MS = 100L;
     static final String PREFS_NAME = "TheLoopPrefs";
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
@@ -75,9 +78,9 @@ public class MainActivity extends AppCompatActivity {
     private static final String NEWS_CACHE_KEY = "news_cache";
     private static final String KEY_SECTION_ORDER = "section_order";
     private static final String DEFAULT_SECTION_ORDER = "headlines,calendar,fun_fact";
+    private static final String KEY_PENDING_CALENDAR_PERMISSION = "pending_calendar_permission";
 
-
-    // View variables...
+    // Static View variables (Day Ahead and Weather)
     private TextView greetingTextView;
     private TextView summaryTextView;
     private ProgressBar weatherProgressBar;
@@ -93,14 +96,23 @@ public class MainActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationProviderClient;
     private int selectedNewsCategoryIndex = 2; // Default to "general"
     private Runnable onLocationPermissionGranted;
-    private View mPendingCalendarCard;
+    private boolean mPendingCalendarPermission = false;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(KEY_PENDING_CALENDAR_PERMISSION, mPendingCalendarPermission);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        if (savedInstanceState != null) {
+            mPendingCalendarPermission = savedInstanceState.getBoolean(KEY_PENDING_CALENDAR_PERMISSION);
+        }
 
         initViews();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
@@ -122,15 +134,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void runSetupSequence() {
-        showNameDialog(() -> {
-            requestLocationPermission(() -> {
-                showNewsCategoryDialog(() -> {
-                    // All setup steps are complete
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
-                    setupCards();
-                });
-            });
-        });
+        showNameDialog(() -> requestLocationPermission(() -> showNewsCategoryDialog(() -> {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
+            setupCards();
+        })));
     }
 
     private void showNameDialog(Runnable onFinished) {
@@ -171,9 +178,7 @@ public class MainActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setTitle("Choose a News Category")
-                .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> {
-                    selectedNewsCategoryIndex = which;
-                })
+                .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> selectedNewsCategoryIndex = which)
                 .setPositiveButton("Save", (dialog, which) -> {
                     String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -191,17 +196,15 @@ public class MainActivity extends AppCompatActivity {
         fetchLocationAndThenWeatherData();
 
         LinearLayout cardsContainer = findViewById(R.id.cards_container);
-        if (cardsContainer.getChildCount() > 1) {
-            cardsContainer.removeViews(1, cardsContainer.getChildCount() - 1);
-        }
+        cardsContainer.removeAllViews();
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
-        String[] sections = order.split(",");
+        List<String> sections = new ArrayList<>(Arrays.asList(order.split(",")));
 
-        for (int i = 0; i < sections.length; i++) {
+        for (int i = 0; i < sections.size(); i++) {
             View cardView = null;
-            switch (sections[i]) {
+            switch (sections.get(i)) {
                 case "headlines":
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
                     fetchNewsData(cardView);
@@ -217,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
             }
             if (cardView != null) {
                 Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
-                animation.setStartOffset(i * 100L);
+                animation.setStartOffset(i * CARD_ANIMATION_STAGGER_DELAY_MS);
                 cardView.startAnimation(animation);
                 cardsContainer.addView(cardView);
             }
@@ -225,7 +228,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchLocationAndThenWeatherData() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (fusedLocationProviderClient == null) {
+            return;
+        }
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             fetchWeatherData(37.77, -122.42); // Default: SF
             return;
         }
@@ -276,7 +283,7 @@ public class MainActivity extends AppCompatActivity {
 
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
-            public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
+            public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
                 weatherProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
                     weatherContentLayout.setVisibility(View.VISIBLE);
@@ -290,7 +297,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<WeatherResponse> call, Throwable t) {
+            public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "Weather API call failed.", t);
                 loadWeatherFromCache();
             }
@@ -312,8 +319,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchNewsData(View cardView) {
         ProgressBar headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
-        TextView headlinesErrorText = cardView.findViewById(R.id.headlines_error_text);
-
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
             return;
@@ -327,7 +332,7 @@ public class MainActivity extends AppCompatActivity {
 
         call.enqueue(new Callback<NewsResponse>() {
             @Override
-            public void onResponse(Call<NewsResponse> call, Response<NewsResponse> response) {
+            public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
                 headlinesProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null && response.body().getArticles() != null) {
                     populateHeadlinesCard(cardView, response.body().getArticles());
@@ -338,7 +343,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<NewsResponse> call, Throwable t) {
+            public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "News API call failed.", t);
                 loadNewsFromCache(cardView);
             }
@@ -348,10 +353,10 @@ public class MainActivity extends AppCompatActivity {
     private void loadNewsFromCache(View cardView) {
         ProgressBar headlinesProgressBar = cardView.findViewById(R.id.headlines_progress_bar);
         TextView headlinesErrorText = cardView.findViewById(R.id.headlines_error_text);
+        headlinesProgressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
-        headlinesProgressBar.setVisibility(View.GONE);
         if (cachedJson != null) {
             NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
             if (cachedResponse != null && cachedResponse.getArticles() != null) {
@@ -393,8 +398,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadCalendarData(View cardView) {
-        this.mPendingCalendarCard = cardView;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            mPendingCalendarPermission = true;
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
         } else {
             queryCalendarEvents(cardView);
@@ -405,17 +410,10 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
+            mPendingCalendarPermission = false;
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (mPendingCalendarCard != null) {
-                    queryCalendarEvents(mPendingCalendarCard);
-                }
-            } else {
-                if (mPendingCalendarCard != null) {
-                    TextView calendarPermissionDeniedText = mPendingCalendarCard.findViewById(R.id.calendar_permission_denied_text);
-                    calendarPermissionDeniedText.setVisibility(View.VISIBLE);
-                }
+                setupCards();
             }
-            mPendingCalendarCard = null;
         } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 if (onLocationPermissionGranted != null) {
@@ -444,8 +442,14 @@ public class MainActivity extends AppCompatActivity {
                     CalendarContract.Events.EVENT_LOCATION
             };
 
-            String selection = CalendarContract.Events.DTSTART + " >= ?";
-            String[] selectionArgs = new String[]{String.valueOf(System.currentTimeMillis())};
+            String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
+            long now = System.currentTimeMillis();
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(now);
+            cal.add(Calendar.HOUR_OF_DAY, 24);
+            long endOfDay = cal.getTimeInMillis();
+
+            String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(endOfDay)};
             String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
             try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
@@ -468,7 +472,9 @@ public class MainActivity extends AppCompatActivity {
     private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
         LinearLayout calendarEventsContainer = cardView.findViewById(R.id.calendar_events_container);
         TextView calendarNoEventsText = cardView.findViewById(R.id.calendar_no_events_text);
+        TextView calendarPermissionDeniedText = cardView.findViewById(R.id.calendar_permission_denied_text);
 
+        calendarPermissionDeniedText.setVisibility(View.GONE);
         calendarEventsContainer.removeAllViews();
         if (events.isEmpty()) {
             calendarNoEventsText.setVisibility(View.VISIBLE);
@@ -494,6 +500,14 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     location.setVisibility(View.GONE);
                 }
+
+                eventView.setOnClickListener(v -> {
+                    v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
+                    startActivity(intent);
+                });
+
                 calendarEventsContainer.addView(eventView);
             }
         }
