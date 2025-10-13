@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView currentConditions;
     private TextView highLowTemp;
     private TextView dailyForecast;
-    private FusedLocationProviderClient fusedLocationClient;
+    private FusedLocationProviderClient fusedLocationProviderClient;
     private Gson gson = new Gson();
     private int selectedNewsCategoryIndex = 2; // Default to "general"
     private Runnable onLocationPermissionGranted;
@@ -107,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         initViews();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
@@ -399,9 +399,12 @@ public class MainActivity extends AppCompatActivity {
     private void loadCalendarData(View cardView) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CALENDAR)) {
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
+                new AlertDialog.Builder(this)
+                        .setTitle("Permission needed")
+                        .setMessage("This permission is needed to display your upcoming calendar events.")
+                        .setPositiveButton("ok", (dialog, which) -> ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE))
+                        .setNegativeButton("cancel", (dialog, which) -> dialog.dismiss())
+                        .create().show();
             } else {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
             }
@@ -430,9 +433,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             } else {
                 if (calendarCard != null) {
-                    calendarCard.findViewById(R.id.calendar_permission_denied_text).setVisibility(View.VISIBLE);
-                    calendarCard.findViewById(R.id.calendar_events_container).setVisibility(View.GONE);
-                    calendarCard.findViewById(R.id.calendar_no_events_text).setVisibility(View.GONE);
+                    CalendarViewHolder viewHolder = (CalendarViewHolder) calendarCard.getTag();
+                    viewHolder.permissionDeniedText.setVisibility(View.VISIBLE);
+                    viewHolder.eventsContainer.setVisibility(View.GONE);
+                    viewHolder.noEventsText.setVisibility(View.GONE);
                 }
             }
         } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
@@ -470,15 +474,18 @@ public class MainActivity extends AppCompatActivity {
             Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder);
 
             if (cursor != null) {
-                while (cursor.moveToNext() && events.size() < 3) {
-                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events._ID));
-                    String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE));
-                    long startTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));
-                    long endTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND));
-                    String location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION));
-                    events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                try {
+                    while (cursor.moveToNext() && events.size() < 3) {
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events._ID));
+                        String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE));
+                        long startTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));
+                        long endTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND));
+                        String location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION));
+                        events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                    }
+                } finally {
+                    cursor.close();
                 }
-                cursor.close();
             }
 
             runOnUiThread(() -> populateCalendarCard(cardView, events));
