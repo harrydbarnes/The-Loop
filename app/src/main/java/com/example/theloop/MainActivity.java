@@ -451,8 +451,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadCalendarData(View cardView) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            pendingCalendarCardTag = (String) cardView.getTag();
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            Object tag = cardView.getTag();
+            if (tag instanceof String) {
+                pendingCalendarCardTag = (String) tag;
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            } else {
+                Log.e(TAG, "Calendar card does not have a valid string tag for permission request.");
+            }
         } else {
             queryCalendarEvents(cardView);
         }
@@ -474,7 +479,9 @@ public class MainActivity extends AppCompatActivity {
                     View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
                     if (calendarCard != null) {
                         CalendarViewHolder holder = (CalendarViewHolder) calendarCard.getTag(R.id.view_holder_tag);
-                        holder.permissionDeniedText.setVisibility(View.VISIBLE);
+                        if (holder != null) {
+                            holder.permissionDeniedText.setVisibility(View.VISIBLE);
+                        }
                     }
                 }
             }
@@ -519,12 +526,17 @@ public class MainActivity extends AppCompatActivity {
 
             try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
                 if (cursor != null) {
+                    int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                    int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                    int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                    int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                    int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
                     while (cursor.moveToNext() && events.size() < 3) {
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events._ID));
-                        String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE));
-                        long startTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));
-                        long endTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND));
-                        String location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION));
+                        long id = cursor.getLong(idCol);
+                        String title = cursor.getString(titleCol);
+                        long startTime = cursor.getLong(startCol);
+                        long endTime = cursor.getLong(endCol);
+                        String location = cursor.getString(locationCol);
                         events.add(new CalendarEvent(id, title, startTime, endTime, location));
                     }
                 }
