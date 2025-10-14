@@ -168,15 +168,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void runSetupSequence() {
-        showNameDialog(() -> {
-            requestLocationPermission(() -> {
+        showNameDialog(() ->
+            requestLocationPermission(() ->
                 showNewsCategoryDialog(() -> {
                     // All setup steps are complete
                     getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
                     setupCards();
-                });
-            });
-        });
+                })
+            )
+        );
     }
 
     private void showNameDialog(Runnable onFinished) {
@@ -247,18 +247,19 @@ public class MainActivity extends AppCompatActivity {
             switch (section) {
                 case "headlines":
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
-                    cardView.setTag(new HeadlinesViewHolder(cardView));
+                    cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
                     fetchNewsData(cardView);
                     break;
                 case "calendar":
                     cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
-                    cardView.setTag("calendar_card_" + i); // Unique tag for permission handling
+                    String calendarTag = "calendar_card_" + i;
+                    cardView.setTag(calendarTag);
                     cardView.setTag(R.id.view_holder_tag, new CalendarViewHolder(cardView));
                     loadCalendarData(cardView);
                     break;
                 case "fun_fact":
                     cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
-                    cardView.setTag(new FunFactViewHolder(cardView));
+                    cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
                     loadFunFact(cardView);
                     break;
             }
@@ -421,7 +422,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadFunFact(View cardView) {
-        FunFactViewHolder holder = (FunFactViewHolder) cardView.getTag();
+        FunFactViewHolder holder = (FunFactViewHolder) cardView.getTag(R.id.view_holder_tag);
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
@@ -503,9 +504,9 @@ public class MainActivity extends AppCompatActivity {
             Calendar cal = Calendar.getInstance();
             cal.setTimeInMillis(now);
             cal.add(Calendar.HOUR_OF_DAY, 24);
-            long endOfQueryRange = cal.getTimeInMillis();
+            long queryCutoffTime = cal.getTimeInMillis();
 
-            String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(endOfQueryRange)};
+            String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
             String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
             try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
