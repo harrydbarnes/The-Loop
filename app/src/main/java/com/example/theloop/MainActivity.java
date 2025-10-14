@@ -559,7 +559,12 @@ public class MainActivity extends AppCompatActivity {
                     v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                     Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
                     Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
-                    startActivity(intent);
+                    try {
+                        startActivity(intent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        Toast.makeText(v.getContext(), "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to open calendar event", e);
+                    }
                 });
 
                 holder.eventsContainer.addView(eventView);
@@ -627,7 +632,12 @@ public class MainActivity extends AppCompatActivity {
             headlineView.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl()));
-                startActivity(browserIntent);
+                try {
+                    startActivity(browserIntent);
+                } catch (android.content.ActivityNotFoundException e) {
+                    Toast.makeText(v.getContext(), "No browser found to open link.", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Failed to open article link", e);
+                }
             });
 
             holder.container.addView(headlineView);
