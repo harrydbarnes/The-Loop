@@ -77,7 +77,15 @@ public class MainActivity extends AppCompatActivity {
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
     private static final String KEY_SECTION_ORDER = "section_order";
-    private static final String DEFAULT_SECTION_ORDER = "headlines,calendar,fun_fact";
+
+    private static final String SECTION_HEADLINES = "headlines";
+    private static final String SECTION_CALENDAR = "calendar";
+    private static final String SECTION_FUN_FACT = "fun_fact";
+    private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT;
+
+    private static final double DEFAULT_LATITUDE = 51.5480; // Highbury, London
+    private static final double DEFAULT_LONGITUDE = -0.1030; // Highbury, London
+
     private static final String PENDING_CALENDAR_CARD_TAG_KEY = "pending_calendar_card_tag";
 
     // Static View variables (Day Ahead and Weather)
@@ -96,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationProviderClient;
     private int selectedNewsCategoryIndex = 2; // Default to "general"
     private Runnable onLocationPermissionGranted;
-    private String mPendingCalendarCardTag;
+    private String pendingCalendarCardTag;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private static class HeadlinesViewHolder {
@@ -134,8 +142,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (mPendingCalendarCardTag != null) {
-            outState.putString(PENDING_CALENDAR_CARD_TAG_KEY, mPendingCalendarCardTag);
+        if (pendingCalendarCardTag != null) {
+            outState.putString(PENDING_CALENDAR_CARD_TAG_KEY, pendingCalendarCardTag);
         }
     }
 
@@ -145,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         if (savedInstanceState != null) {
-            mPendingCalendarCardTag = savedInstanceState.getString(PENDING_CALENDAR_CARD_TAG_KEY);
+            pendingCalendarCardTag = savedInstanceState.getString(PENDING_CALENDAR_CARD_TAG_KEY);
         }
 
         initViews();
@@ -245,19 +253,19 @@ public class MainActivity extends AppCompatActivity {
             View cardView = null;
             String section = sections.get(i);
             switch (section) {
-                case "headlines":
+                case SECTION_HEADLINES:
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
                     cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
                     fetchNewsData(cardView);
                     break;
-                case "calendar":
+                case SECTION_CALENDAR:
                     cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
                     String calendarTag = "calendar_card_" + i;
                     cardView.setTag(calendarTag);
                     cardView.setTag(R.id.view_holder_tag, new CalendarViewHolder(cardView));
                     loadCalendarData(cardView);
                     break;
-                case "fun_fact":
+                case SECTION_FUN_FACT:
                     cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
                     cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
                     loadFunFact(cardView);
@@ -278,7 +286,7 @@ public class MainActivity extends AppCompatActivity {
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherData(37.77, -122.42); // Default: SF
+            fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
             return;
         }
         fusedLocationProviderClient.getLastLocation()
@@ -287,12 +295,12 @@ public class MainActivity extends AppCompatActivity {
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
                     } else {
                         Log.w(TAG, "Last location is null, using default.");
-                        fetchWeatherData(37.77, -122.42); // Default: SF
+                        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                     }
                 })
                 .addOnFailureListener(this, e -> {
                     Log.e(TAG, "Failed to get location.", e);
-                    fetchWeatherData(37.77, -122.42); // Default: SF
+                    fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                 });
     }
 
@@ -383,7 +391,7 @@ public class MainActivity extends AppCompatActivity {
                     populateHeadlinesCard(cardView, response.body().getArticles());
                     saveToCache(NEWS_CACHE_KEY, response.body());
                 } else {
-                    loadNewsFromCache(cardView);
+                    holder.errorText.setVisibility(View.VISIBLE);
                 }
             }
 
@@ -443,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadCalendarData(View cardView) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            mPendingCalendarCardTag = (String) cardView.getTag();
+            pendingCalendarCardTag = (String) cardView.getTag();
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
         } else {
             queryCalendarEvents(cardView);
@@ -455,22 +463,22 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (mPendingCalendarCardTag != null) {
-                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(mPendingCalendarCardTag);
+                if (pendingCalendarCardTag != null) {
+                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
                     if (calendarCard != null) {
                         queryCalendarEvents(calendarCard);
                     }
                 }
             } else {
-                if (mPendingCalendarCardTag != null) {
-                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(mPendingCalendarCardTag);
+                if (pendingCalendarCardTag != null) {
+                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
                     if (calendarCard != null) {
                         CalendarViewHolder holder = (CalendarViewHolder) calendarCard.getTag(R.id.view_holder_tag);
                         holder.permissionDeniedText.setVisibility(View.VISIBLE);
                     }
                 }
             }
-            mPendingCalendarCardTag = null;
+            pendingCalendarCardTag = null;
         } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 if (onLocationPermissionGranted != null) {
