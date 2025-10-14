@@ -285,8 +285,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchLocationAndThenWeatherData() {
         if (fusedLocationProviderClient == null) {
-            Log.e(TAG, "FusedLocationProviderClient is null. Cannot fetch location.");
-            return;
+            Log.w(TAG, "FusedLocationProviderClient is null. Attempting to re-initialize.");
+            fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+            if (fusedLocationProviderClient == null) {
+                Log.e(TAG, "Failed to re-initialize FusedLocationProviderClient. Cannot fetch location.");
+                // Show a toast message to the user
+                Toast.makeText(this, "Could not access location services. Please try again later.", Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -379,7 +385,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in fetchNewsData");
             return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
+                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
+        if (holder == null) {
+            Log.e(TAG, "ViewHolder is null in fetchNewsData");
+            return;
+        }
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
             return;
@@ -416,7 +427,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in loadNewsFromCache");
             return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
+                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
+        if (holder == null) {
+            Log.e(TAG, "ViewHolder is null in loadNewsFromCache");
+            return;
+        }
         holder.progressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -446,7 +462,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in loadFunFact");
             return;
         }
-        FunFactViewHolder holder = (FunFactViewHolder) cardView.getTag(R.id.view_holder_tag);
+        FunFactViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof FunFactViewHolder) ?
+                (FunFactViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
+        if (holder == null) {
+            Log.e(TAG, "ViewHolder is null in loadFunFact");
+            return;
+        }
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
@@ -579,7 +600,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateCalendarCard");
             return;
         }
-        CalendarViewHolder holder = (CalendarViewHolder) cardView.getTag(R.id.view_holder_tag);
+        CalendarViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof CalendarViewHolder) ?
+                (CalendarViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
+        if (holder == null) {
+            Log.e(TAG, "ViewHolder is null in populateCalendarCard");
+            return;
+        }
         holder.permissionDeniedText.setVisibility(View.GONE);
         holder.eventsContainer.removeAllViews();
         if (events.isEmpty()) {
@@ -670,7 +696,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateHeadlinesCard");
             return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
+                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
+        if (holder == null) {
+            Log.e(TAG, "ViewHolder is null in populateHeadlinesCard");
+            return;
+        }
         holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
