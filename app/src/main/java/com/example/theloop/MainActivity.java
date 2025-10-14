@@ -270,6 +270,9 @@ public class MainActivity extends AppCompatActivity {
                     cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
                     loadFunFact(cardView);
                     break;
+                default:
+                    Log.w(TAG, "Unknown section type: " + section);
+                    break;
             }
             if (cardView != null) {
                 Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
@@ -282,6 +285,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchLocationAndThenWeatherData() {
         if (fusedLocationProviderClient == null) {
+            Log.e(TAG, "FusedLocationProviderClient is null. Cannot fetch location.");
             return;
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
@@ -371,6 +375,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchNewsData(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in fetchNewsData");
+            return;
+        }
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
@@ -404,6 +412,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadNewsFromCache(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadNewsFromCache");
+            return;
+        }
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.progressBar.setVisibility(View.GONE);
 
@@ -430,6 +442,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadFunFact(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadFunFact");
+            return;
+        }
         FunFactViewHolder holder = (FunFactViewHolder) cardView.getTag(R.id.view_holder_tag);
         try {
             Resources res = getResources();
@@ -450,6 +466,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadCalendarData(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadCalendarData");
+            return;
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             Object tag = cardView.getTag();
             if (tag instanceof String) {
@@ -501,52 +521,64 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void queryCalendarEvents(View cardView) {
-        executorService.execute(() -> {
-            List<CalendarEvent> events = new ArrayList<>();
-            ContentResolver contentResolver = getContentResolver();
-            Uri uri = CalendarContract.Events.CONTENT_URI;
+        try {
+            executorService.execute(() -> {
+                List<CalendarEvent> events = new ArrayList<>();
+                ContentResolver contentResolver = getContentResolver();
+                Uri uri = CalendarContract.Events.CONTENT_URI;
 
-            String[] projection = new String[]{
-                    CalendarContract.Events._ID,
-                    CalendarContract.Events.TITLE,
-                    CalendarContract.Events.DTSTART,
-                    CalendarContract.Events.DTEND,
-                    CalendarContract.Events.EVENT_LOCATION
-            };
+                String[] projection = new String[]{
+                        CalendarContract.Events._ID,
+                        CalendarContract.Events.TITLE,
+                        CalendarContract.Events.DTSTART,
+                        CalendarContract.Events.DTEND,
+                        CalendarContract.Events.EVENT_LOCATION
+                };
 
-            String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
-            long now = System.currentTimeMillis();
-            Calendar cal = Calendar.getInstance();
-            cal.setTimeInMillis(now);
-            cal.add(Calendar.HOUR_OF_DAY, 24);
-            long queryCutoffTime = cal.getTimeInMillis();
+                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
+                long now = System.currentTimeMillis();
+                Calendar cal = Calendar.getInstance();
+                cal.setTimeInMillis(now);
+                cal.add(Calendar.HOUR_OF_DAY, 24);
+                long queryCutoffTime = cal.getTimeInMillis();
 
-            String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
-            String sortOrder = CalendarContract.Events.DTSTART + " ASC";
+                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
+                String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
-            try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
-                if (cursor != null) {
-                    int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
-                    int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
-                    int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
-                    int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
-                    int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-                    while (cursor.moveToNext() && events.size() < 3) {
-                        long id = cursor.getLong(idCol);
-                        String title = cursor.getString(titleCol);
-                        long startTime = cursor.getLong(startCol);
-                        long endTime = cursor.getLong(endCol);
-                        String location = cursor.getString(locationCol);
-                        events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
+                    if (cursor != null) {
+                        try {
+                            int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                            int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                            int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                            int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                            int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
+                            while (cursor.moveToNext() && events.size() < 3) {
+                                long id = cursor.getLong(idCol);
+                                String title = cursor.getString(titleCol);
+                                long startTime = cursor.getLong(startCol);
+                                long endTime = cursor.getLong(endCol);
+                                String location = cursor.getString(locationCol);
+                                events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing calendar cursor", e);
+                        }
                     }
                 }
-            }
 
-            runOnUiThread(() -> populateCalendarCard(cardView, events));
-        });
+                runOnUiThread(() -> populateCalendarCard(cardView, events));
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error executing calendar query", e);
+        }
     }
 
     private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in populateCalendarCard");
+            return;
+        }
         CalendarViewHolder holder = (CalendarViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.permissionDeniedText.setVisibility(View.GONE);
         holder.eventsContainer.removeAllViews();
@@ -634,6 +666,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void populateHeadlinesCard(View cardView, List<Article> articles) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in populateHeadlinesCard");
+            return;
+        }
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
