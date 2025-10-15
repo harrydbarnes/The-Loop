@@ -353,6 +353,9 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
             public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 weatherProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
                     weatherContentLayout.setVisibility(View.VISIBLE);
@@ -367,6 +370,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 Log.e(TAG, "Weather API call failed.", t);
                 loadWeatherFromCache();
             }
@@ -411,6 +417,9 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<NewsResponse>() {
             @Override
             public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 holder.progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null && response.body().getArticles() != null) {
                     populateHeadlinesCard(cardView, response.body().getArticles());
@@ -422,6 +431,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 Log.e(TAG, "News API call failed.", t);
                 loadNewsFromCache(cardView);
             }
@@ -597,7 +609,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                runOnUiThread(() -> populateCalendarCard(cardView, events));
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    populateCalendarCard(cardView, events);
+                });
             });
         } catch (Exception e) {
             Log.e(TAG, "Error executing calendar query", e);
