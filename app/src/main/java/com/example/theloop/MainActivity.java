@@ -176,15 +176,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void runSetupSequence() {
-        showNameDialog(() ->
-            requestLocationPermission(() ->
-                showNewsCategoryDialog(() -> {
-                    // All setup steps are complete
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
-                    setupCards();
-                })
-            )
-        );
+        showNameDialog(this::onNameEntered);
+    }
+
+    private void onNameEntered() {
+        requestLocationPermission(this::onLocationPermissionGrantedForSetup);
+    }
+
+    private void onLocationPermissionGrantedForSetup() {
+        showNewsCategoryDialog(this::onNewsCategorySelected);
+    }
+
+    private void onNewsCategorySelected() {
+        // All setup steps are complete
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
+        setupCards();
     }
 
     private void showNameDialog(Runnable onFinished) {
@@ -385,12 +391,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in fetchNewsData");
             return;
         }
-        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
-                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
-        if (holder == null) {
-            Log.e(TAG, "ViewHolder is null in fetchNewsData");
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
             return;
         }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
             return;
@@ -427,12 +433,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in loadNewsFromCache");
             return;
         }
-        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
-                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
-        if (holder == null) {
-            Log.e(TAG, "ViewHolder is null in loadNewsFromCache");
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in loadNewsFromCache");
             return;
         }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         holder.progressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -462,12 +468,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in loadFunFact");
             return;
         }
-        FunFactViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof FunFactViewHolder) ?
-                (FunFactViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
-        if (holder == null) {
-            Log.e(TAG, "ViewHolder is null in loadFunFact");
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof FunFactViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type FunFactViewHolder in loadFunFact");
             return;
         }
+        FunFactViewHolder holder = (FunFactViewHolder) tag;
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
@@ -519,9 +525,12 @@ public class MainActivity extends AppCompatActivity {
                 if (pendingCalendarCardTag != null) {
                     View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
                     if (calendarCard != null) {
-                        CalendarViewHolder holder = (CalendarViewHolder) calendarCard.getTag(R.id.view_holder_tag);
-                        if (holder != null) {
+                        Object tag = calendarCard.getTag(R.id.view_holder_tag);
+                        if (tag instanceof CalendarViewHolder) {
+                            CalendarViewHolder holder = (CalendarViewHolder) tag;
                             holder.permissionDeniedText.setVisibility(View.VISIBLE);
+                        } else {
+                            Log.e(TAG, "Could not find CalendarViewHolder for tag: " + pendingCalendarCardTag);
                         }
                     }
                 }
@@ -600,12 +609,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateCalendarCard");
             return;
         }
-        CalendarViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof CalendarViewHolder) ?
-                (CalendarViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
-        if (holder == null) {
-            Log.e(TAG, "ViewHolder is null in populateCalendarCard");
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof CalendarViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type CalendarViewHolder in populateCalendarCard");
             return;
         }
+        CalendarViewHolder holder = (CalendarViewHolder) tag;
         holder.permissionDeniedText.setVisibility(View.GONE);
         holder.eventsContainer.removeAllViews();
         if (events.isEmpty()) {
@@ -696,12 +705,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateHeadlinesCard");
             return;
         }
-        HeadlinesViewHolder holder = (cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder) ?
-                (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag) : null;
-        if (holder == null) {
-            Log.e(TAG, "ViewHolder is null in populateHeadlinesCard");
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
             return;
         }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
