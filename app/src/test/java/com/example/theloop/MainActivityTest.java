@@ -3,16 +3,20 @@ package com.example.theloop;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 import android.content.SharedPreferences;
-
+import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import java.time.ZonedDateTime;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = {28})
 public class MainActivityTest {
 
     @Mock
@@ -21,11 +25,13 @@ public class MainActivityTest {
     @Mock
     SharedPreferences.Editor mockEditor;
 
-    private MainActivity mainActivity;
+    @Spy
+    private MainActivity mainActivity = Robolectric.buildActivity(MainActivity.class).create().get();
 
     @Before
     public void setUp() {
-        mainActivity = new MainActivity();
+        MockitoAnnotations.initMocks(this);
+        doReturn(mockPrefs).when(mainActivity).getSharedPreferences(anyString(), anyInt());
         when(mockPrefs.edit()).thenReturn(mockEditor);
     }
 
@@ -83,8 +89,4 @@ public class MainActivityTest {
         assertEquals(R.drawable.ic_weather_thunderstorm, mainActivity.getWeatherIconResource(95));
         assertEquals(R.drawable.ic_weather_cloudy, mainActivity.getWeatherIconResource(999)); // Default case
     }
-
-    // Note: Testing getGreeting() is more complex as it depends on Android context and Calendar.
-    // A full test would require Robolectric or more complex mocking.
-    // This set of tests covers the pure logic functions.
 }

@@ -1,15 +1,9 @@
 package com.example.theloop;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -35,6 +29,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.example.theloop.models.Article;
 import com.example.theloop.models.CalendarEvent;
 import com.example.theloop.models.NewsResponse;
@@ -52,10 +52,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -66,14 +69,26 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int CALENDAR_PERMISSION_REQUEST_CODE = 100;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
+    private static final long CARD_ANIMATION_STAGGER_DELAY_MS = 100L;
     static final String PREFS_NAME = "TheLoopPrefs";
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
     static final String KEY_NEWS_CATEGORY = "news_category";
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
+    private static final String KEY_SECTION_ORDER = "section_order";
 
-    // View variables...
+    private static final String SECTION_HEADLINES = "headlines";
+    private static final String SECTION_CALENDAR = "calendar";
+    private static final String SECTION_FUN_FACT = "fun_fact";
+    private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT;
+
+    private static final double DEFAULT_LATITUDE = 51.5480; // Highbury, London
+    private static final double DEFAULT_LONGITUDE = -0.1030; // Highbury, London
+
+    private static final String PENDING_CALENDAR_CARD_TAG_KEY = "pending_calendar_card_tag";
+
+    // Static View variables (Day Ahead and Weather)
     private TextView greetingTextView;
     private TextView summaryTextView;
     private ProgressBar weatherProgressBar;
@@ -84,26 +99,65 @@ public class MainActivity extends AppCompatActivity {
     private TextView currentConditions;
     private TextView highLowTemp;
     private TextView dailyForecast;
-    private ProgressBar headlinesProgressBar;
-    private TextView headlinesErrorText;
-    private LinearLayout headlinesContainer;
-    private TextView calendarPermissionDeniedText;
-    private TextView calendarNoEventsText;
-    private LinearLayout calendarEventsContainer;
-    private TextView funFactText;
+
     private Gson gson = new Gson();
-    private FusedLocationProviderClient fusedLocationClient;
+    private FusedLocationProviderClient fusedLocationProviderClient;
     private int selectedNewsCategoryIndex = 2; // Default to "general"
     private Runnable onLocationPermissionGranted;
+    private String pendingCalendarCardTag;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
+    private static class HeadlinesViewHolder {
+        final ProgressBar progressBar;
+        final TextView errorText;
+        final LinearLayout container;
+
+        HeadlinesViewHolder(View cardView) {
+            progressBar = cardView.findViewById(R.id.headlines_progress_bar);
+            errorText = cardView.findViewById(R.id.headlines_error_text);
+            container = cardView.findViewById(R.id.headlines_container);
+        }
+    }
+
+    private static class CalendarViewHolder {
+        final TextView permissionDeniedText;
+        final TextView noEventsText;
+        final LinearLayout eventsContainer;
+
+        CalendarViewHolder(View cardView) {
+            permissionDeniedText = cardView.findViewById(R.id.calendar_permission_denied_text);
+            noEventsText = cardView.findViewById(R.id.calendar_no_events_text);
+            eventsContainer = cardView.findViewById(R.id.calendar_events_container);
+        }
+    }
+
+    private static class FunFactViewHolder {
+        final TextView funFactText;
+
+        FunFactViewHolder(View cardView) {
+            funFactText = cardView.findViewById(R.id.fun_fact_text);
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (pendingCalendarCardTag != null) {
+            outState.putString(PENDING_CALENDAR_CARD_TAG_KEY, pendingCalendarCardTag);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        if (savedInstanceState != null) {
+            pendingCalendarCardTag = savedInstanceState.getString(PENDING_CALENDAR_CARD_TAG_KEY);
+        }
+
         initViews();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
@@ -111,20 +165,32 @@ public class MainActivity extends AppCompatActivity {
         if (isFirstRun) {
             runSetupSequence();
         } else {
-            loadDataForCurrentUser();
+            setupCards();
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        executorService.shutdown();
+    }
+
     private void runSetupSequence() {
-        showNameDialog(() -> {
-            requestLocationPermission(() -> {
-                showNewsCategoryDialog(() -> {
-                    // All setup steps are complete
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
-                    loadDataForCurrentUser();
-                });
-            });
-        });
+        showNameDialog(this::onNameEntered);
+    }
+
+    private void onNameEntered() {
+        requestLocationPermission(this::onLocationPermissionGrantedForSetup);
+    }
+
+    private void onLocationPermissionGrantedForSetup() {
+        showNewsCategoryDialog(this::onNewsCategorySelected);
+    }
+
+    private void onNewsCategorySelected() {
+        // All setup steps are complete
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
+        setupCards();
     }
 
     private void showNameDialog(Runnable onFinished) {
@@ -133,20 +199,20 @@ public class MainActivity extends AppCompatActivity {
         final EditText nameEditText = dialogView.findViewById(R.id.name_edit_text);
 
         new AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setTitle("Welcome to The Loop!")
-            .setPositiveButton("Save", (dialog, which) -> {
-                String name = nameEditText.getText().toString();
-                if (!TextUtils.isEmpty(name)) {
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit()
-                        .putString(KEY_USER_NAME, name)
-                        .apply();
-                }
-                onFinished.run();
-            })
-            .setCancelable(false)
-            .show();
+                .setView(dialogView)
+                .setTitle("Welcome to The Loop!")
+                .setPositiveButton("Save", (dialog, which) -> {
+                    String name = nameEditText.getText().toString();
+                    if (!TextUtils.isEmpty(name)) {
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                                .edit()
+                                .putString(KEY_USER_NAME, name)
+                                .apply();
+                    }
+                    onFinished.run();
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void requestLocationPermission(Runnable onGranted) {
@@ -164,48 +230,94 @@ public class MainActivity extends AppCompatActivity {
         final String[] categories = {"Business", "Entertainment", "General", "Health", "Science", "Sports", "Technology"};
 
         new AlertDialog.Builder(this)
-            .setTitle("Choose a News Category")
-            .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> {
-                selectedNewsCategoryIndex = which;
-            })
-            .setPositiveButton("Save", (dialog, which) -> {
-                String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .edit()
-                    .putString(KEY_NEWS_CATEGORY, selectedCategory)
-                    .apply();
-                onFinished.run();
-            })
-            .setCancelable(false)
-            .show();
+                .setTitle("Choose a News Category")
+                .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> selectedNewsCategoryIndex = which)
+                .setPositiveButton("Save", (dialog, which) -> {
+                    String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                            .edit()
+                            .putString(KEY_NEWS_CATEGORY, selectedCategory)
+                            .apply();
+                    onFinished.run();
+                })
+                .setCancelable(false)
+                .show();
     }
 
-    private void loadDataForCurrentUser() {
+    private void setupCards() {
         updateDayAheadCard();
         fetchLocationAndThenWeatherData();
-        fetchNewsData();
-        loadCalendarData();
-        loadFunFact();
+
+        LinearLayout cardsContainer = findViewById(R.id.cards_container);
+        cardsContainer.removeAllViews();
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        List<String> sections = new ArrayList<>(Arrays.asList(order.split(",")));
+
+        for (int i = 0; i < sections.size(); i++) {
+            View cardView = null;
+            String section = sections.get(i);
+            switch (section) {
+                case SECTION_HEADLINES:
+                    cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
+                    cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
+                    fetchNewsData(cardView);
+                    break;
+                case SECTION_CALENDAR:
+                    cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
+                    String calendarTag = "calendar_card_" + i;
+                    cardView.setTag(calendarTag);
+                    cardView.setTag(R.id.view_holder_tag, new CalendarViewHolder(cardView));
+                    loadCalendarData(cardView);
+                    break;
+                case SECTION_FUN_FACT:
+                    cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
+                    cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
+                    loadFunFact(cardView);
+                    break;
+                default:
+                    Log.w(TAG, "Unknown section type: " + section);
+                    break;
+            }
+            if (cardView != null) {
+                Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
+                animation.setStartOffset(i * CARD_ANIMATION_STAGGER_DELAY_MS);
+                cardView.startAnimation(animation);
+                cardsContainer.addView(cardView);
+            }
+        }
     }
 
     private void fetchLocationAndThenWeatherData() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherData(37.77, -122.42); // Default: SF
+        if (fusedLocationProviderClient == null) {
+            Log.w(TAG, "FusedLocationProviderClient is null. Attempting to re-initialize.");
+            fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+            if (fusedLocationProviderClient == null) {
+                Log.e(TAG, "Failed to re-initialize FusedLocationProviderClient. Cannot fetch location.");
+                // Show a toast message to the user
+                Toast.makeText(this, "Could not access location services. Please try again later.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
             return;
         }
-        fusedLocationClient.getLastLocation()
-            .addOnSuccessListener(this, location -> {
-                if (location != null) {
-                    fetchWeatherData(location.getLatitude(), location.getLongitude());
-                } else {
-                    Log.w(TAG, "Last location is null, using default.");
-                    fetchWeatherData(37.77, -122.42); // Default: SF
-                }
-            })
-            .addOnFailureListener(this, e -> {
-                Log.e(TAG, "Failed to get location.", e);
-                fetchWeatherData(37.77, -122.42); // Default: SF
-            });
+        fusedLocationProviderClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    if (location != null) {
+                        fetchWeatherData(location.getLatitude(), location.getLongitude());
+                    } else {
+                        Log.w(TAG, "Last location is null, using default.");
+                        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                    }
+                })
+                .addOnFailureListener(this, e -> {
+                    Log.e(TAG, "Failed to get location.", e);
+                    fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                });
     }
 
     private void initViews() {
@@ -219,13 +331,6 @@ public class MainActivity extends AppCompatActivity {
         currentConditions = findViewById(R.id.current_conditions);
         highLowTemp = findViewById(R.id.high_low_temp);
         dailyForecast = findViewById(R.id.daily_forecast);
-        headlinesProgressBar = findViewById(R.id.headlines_progress_bar);
-        headlinesErrorText = findViewById(R.id.headlines_error_text);
-        headlinesContainer = findViewById(R.id.headlines_container);
-        calendarPermissionDeniedText = findViewById(R.id.calendar_permission_denied_text);
-        calendarNoEventsText = findViewById(R.id.calendar_no_events_text);
-        calendarEventsContainer = findViewById(R.id.calendar_events_container);
-        funFactText = findViewById(R.id.fun_fact_text);
     }
 
     private boolean isNetworkAvailable() {
@@ -247,7 +352,10 @@ public class MainActivity extends AppCompatActivity {
 
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
-            public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
+            public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 weatherProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
                     weatherContentLayout.setVisibility(View.VISIBLE);
@@ -261,7 +369,10 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<WeatherResponse> call, Throwable t) {
+            public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 Log.e(TAG, "Weather API call failed.", t);
                 loadWeatherFromCache();
             }
@@ -281,9 +392,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void fetchNewsData() {
+    private void fetchNewsData(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in fetchNewsData");
+            return;
+        }
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
+            return;
+        }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         if (!isNetworkAvailable()) {
-            loadNewsFromCache();
+            loadNewsFromCache(cardView);
             return;
         }
 
@@ -295,35 +416,54 @@ public class MainActivity extends AppCompatActivity {
 
         call.enqueue(new Callback<NewsResponse>() {
             @Override
-            public void onResponse(Call<NewsResponse> call, Response<NewsResponse> response) {
-                headlinesProgressBar.setVisibility(View.GONE);
+            public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                holder.progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null && response.body().getArticles() != null) {
-                    populateHeadlinesCard(response.body().getArticles());
+                    populateHeadlinesCard(cardView, response.body().getArticles());
                     saveToCache(NEWS_CACHE_KEY, response.body());
                 } else {
-                    loadNewsFromCache();
+                    loadNewsFromCache(cardView);
                 }
             }
 
             @Override
-            public void onFailure(Call<NewsResponse> call, Throwable t) {
+            public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
                 Log.e(TAG, "News API call failed.", t);
-                loadNewsFromCache();
+                loadNewsFromCache(cardView);
             }
         });
     }
 
-    private void loadNewsFromCache() {
+    private void loadNewsFromCache(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadNewsFromCache");
+            return;
+        }
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in loadNewsFromCache");
+            return;
+        }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
+        holder.progressBar.setVisibility(View.GONE);
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
-        headlinesProgressBar.setVisibility(View.GONE);
         if (cachedJson != null) {
             NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
             if (cachedResponse != null && cachedResponse.getArticles() != null) {
-                populateHeadlinesCard(cachedResponse.getArticles());
+                populateHeadlinesCard(cardView, cachedResponse.getArticles());
+            } else {
+                holder.errorText.setVisibility(View.VISIBLE);
             }
         } else {
-            headlinesErrorText.setVisibility(View.VISIBLE);
+            holder.errorText.setVisibility(View.VISIBLE);
         }
     }
 
@@ -335,17 +475,27 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
-    private void loadFunFact() {
+    private void loadFunFact(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadFunFact");
+            return;
+        }
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof FunFactViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type FunFactViewHolder in loadFunFact");
+            return;
+        }
+        FunFactViewHolder holder = (FunFactViewHolder) tag;
         try {
             Resources res = getResources();
             String[] funFacts = res.getStringArray(R.array.fun_facts);
             Calendar calendar = Calendar.getInstance();
             int dayOfYear = calendar.get(Calendar.DAY_OF_YEAR);
             int factIndex = dayOfYear % funFacts.length;
-            funFactText.setText(funFacts[factIndex]);
+            holder.funFactText.setText(funFacts[factIndex]);
         } catch (Exception e) {
             Log.e(TAG, "Could not load fun fact", e);
-            funFactText.setText("Could not load a fun fact today. Try again later!");
+            holder.funFactText.setText("Could not load a fun fact today. Try again later!");
         }
     }
 
@@ -354,11 +504,21 @@ public class MainActivity extends AppCompatActivity {
         summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
     }
 
-    private void loadCalendarData() {
+    private void loadCalendarData(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in loadCalendarData");
+            return;
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            Object tag = cardView.getTag();
+            if (tag instanceof String) {
+                pendingCalendarCardTag = (String) tag;
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
+            } else {
+                Log.e(TAG, "Calendar card does not have a valid string tag for permission request.");
+            }
         } else {
-            queryCalendarEvents();
+            queryCalendarEvents(cardView);
         }
     }
 
@@ -367,12 +527,27 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                queryCalendarEvents();
+                if (pendingCalendarCardTag != null) {
+                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
+                    if (calendarCard != null) {
+                        queryCalendarEvents(calendarCard);
+                    }
+                }
             } else {
-                calendarPermissionDeniedText.setVisibility(View.VISIBLE);
-                calendarEventsContainer.setVisibility(View.GONE);
-                calendarNoEventsText.setVisibility(View.GONE);
+                if (pendingCalendarCardTag != null) {
+                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
+                    if (calendarCard != null) {
+                        Object tag = calendarCard.getTag(R.id.view_holder_tag);
+                        if (tag instanceof CalendarViewHolder) {
+                            CalendarViewHolder holder = (CalendarViewHolder) tag;
+                            holder.permissionDeniedText.setVisibility(View.VISIBLE);
+                        } else {
+                            Log.e(TAG, "Could not find CalendarViewHolder for tag: " + pendingCalendarCardTag);
+                        }
+                    }
+                }
             }
+            pendingCalendarCardTag = null;
         } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 if (onLocationPermissionGranted != null) {
@@ -387,54 +562,89 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void queryCalendarEvents() {
-        new Thread(() -> {
-            List<CalendarEvent> events = new ArrayList<>();
-            ContentResolver contentResolver = getContentResolver();
-            Uri uri = CalendarContract.Events.CONTENT_URI;
+    private void queryCalendarEvents(View cardView) {
+        try {
+            executorService.execute(() -> {
+                List<CalendarEvent> events = new ArrayList<>();
+                ContentResolver contentResolver = getContentResolver();
+                Uri uri = CalendarContract.Events.CONTENT_URI;
 
-            String[] projection = new String[]{
-                    CalendarContract.Events._ID,
-                    CalendarContract.Events.TITLE,
-                    CalendarContract.Events.DTSTART,
-                    CalendarContract.Events.DTEND,
-                    CalendarContract.Events.EVENT_LOCATION
-            };
+                String[] projection = new String[]{
+                        CalendarContract.Events._ID,
+                        CalendarContract.Events.TITLE,
+                        CalendarContract.Events.DTSTART,
+                        CalendarContract.Events.DTEND,
+                        CalendarContract.Events.EVENT_LOCATION
+                };
 
-            String selection = CalendarContract.Events.DTSTART + " >= ?";
-            String[] selectionArgs = new String[]{String.valueOf(System.currentTimeMillis())};
-            String sortOrder = CalendarContract.Events.DTSTART + " ASC";
+                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
+                long now = System.currentTimeMillis();
+                Calendar cal = Calendar.getInstance();
+                cal.setTimeInMillis(now);
+                cal.add(Calendar.HOUR_OF_DAY, 24);
+                long queryCutoffTime = cal.getTimeInMillis();
 
-            Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder);
+                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
+                String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
-            if (cursor != null) {
-                while (cursor.moveToNext() && events.size() < 3) {
-                    String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE));
-                    long startTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));
-                    long endTime = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND));
-                    String location = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION));
-                    events.add(new CalendarEvent(title, startTime, endTime, location));
+                try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
+                    if (cursor != null) {
+                        try {
+                            int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                            int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                            int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                            int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                            int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
+                            while (cursor.moveToNext() && events.size() < 3) {
+                                long id = cursor.getLong(idCol);
+                                String title = cursor.getString(titleCol);
+                                long startTime = cursor.getLong(startCol);
+                                long endTime = cursor.getLong(endCol);
+                                String location = cursor.getString(locationCol);
+                                events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing calendar cursor", e);
+                        }
+                    }
                 }
-                cursor.close();
-            }
 
-            runOnUiThread(() -> populateCalendarCard(events));
-        }).start();
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    populateCalendarCard(cardView, events);
+                });
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error executing calendar query", e);
+        }
     }
 
-    private void populateCalendarCard(List<CalendarEvent> events) {
-        calendarEventsContainer.removeAllViews();
+    private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in populateCalendarCard");
+            return;
+        }
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof CalendarViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type CalendarViewHolder in populateCalendarCard");
+            return;
+        }
+        CalendarViewHolder holder = (CalendarViewHolder) tag;
+        holder.permissionDeniedText.setVisibility(View.GONE);
+        holder.eventsContainer.removeAllViews();
         if (events.isEmpty()) {
-            calendarNoEventsText.setVisibility(View.VISIBLE);
-            calendarEventsContainer.setVisibility(View.GONE);
+            holder.noEventsText.setVisibility(View.VISIBLE);
+            holder.eventsContainer.setVisibility(View.GONE);
         } else {
-            calendarNoEventsText.setVisibility(View.GONE);
-            calendarEventsContainer.setVisibility(View.VISIBLE);
+            holder.noEventsText.setVisibility(View.GONE);
+            holder.eventsContainer.setVisibility(View.VISIBLE);
             Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.fade_in);
-            calendarEventsContainer.startAnimation(fadeIn);
+            holder.eventsContainer.startAnimation(fadeIn);
             LayoutInflater inflater = LayoutInflater.from(this);
             for (CalendarEvent event : events) {
-                View eventView = inflater.inflate(R.layout.item_calendar_event, calendarEventsContainer, false);
+                View eventView = inflater.inflate(R.layout.item_calendar_event, holder.eventsContainer, false);
                 TextView title = eventView.findViewById(R.id.event_title);
                 TextView time = eventView.findViewById(R.id.event_time);
                 TextView location = eventView.findViewById(R.id.event_location);
@@ -448,7 +658,20 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     location.setVisibility(View.GONE);
                 }
-                calendarEventsContainer.addView(eventView);
+
+                eventView.setOnClickListener(v -> {
+                    v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
+                    try {
+                        startActivity(intent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        Toast.makeText(v.getContext(), "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to open calendar event", e);
+                    }
+                });
+
+                holder.eventsContainer.addView(eventView);
             }
         }
     }
@@ -494,14 +717,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    void populateHeadlinesCard(List<Article> articles) {
-        headlinesContainer.removeAllViews();
+    void populateHeadlinesCard(View cardView, List<Article> articles) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in populateHeadlinesCard");
+            return;
+        }
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
+            return;
+        }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
+        holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
         for (Article article : articles) {
             if (count >= 3) break;
 
-            View headlineView = inflater.inflate(R.layout.item_headline, headlinesContainer, false);
+            View headlineView = inflater.inflate(R.layout.item_headline, holder.container, false);
             TextView title = headlineView.findViewById(R.id.headline_title);
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
@@ -512,14 +745,19 @@ public class MainActivity extends AppCompatActivity {
             headlineView.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl()));
-                startActivity(browserIntent);
+                try {
+                    startActivity(browserIntent);
+                } catch (android.content.ActivityNotFoundException e) {
+                    Toast.makeText(v.getContext(), "No browser found to open link.", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Failed to open article link", e);
+                }
             });
 
-            headlinesContainer.addView(headlineView);
+            holder.container.addView(headlineView);
             count++;
         }
         Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.fade_in);
-        headlinesContainer.startAnimation(fadeIn);
+        holder.container.startAnimation(fadeIn);
     }
 
     String formatPublishedAt(String publishedAt) {
