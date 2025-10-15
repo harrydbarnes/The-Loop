@@ -425,7 +425,7 @@ public class MainActivity extends AppCompatActivity {
                     populateHeadlinesCard(cardView, response.body().getArticles());
                     saveToCache(NEWS_CACHE_KEY, response.body());
                 } else {
-                    holder.errorText.setVisibility(View.VISIBLE);
+                    loadNewsFromCache(cardView);
                 }
             }
 
