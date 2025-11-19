@@ -43,14 +43,11 @@ import com.example.theloop.network.NewsApiService;
 import com.example.theloop.network.NewsRetrofitClient;
 import com.example.theloop.network.RetrofitClient;
 import com.example.theloop.network.WeatherApiService;
+import com.example.theloop.utils.AppUtils;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
-import java.text.SimpleDateFormat;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -650,7 +647,7 @@ public class MainActivity extends AppCompatActivity {
                 TextView location = eventView.findViewById(R.id.event_location);
 
                 title.setText(event.getTitle());
-                time.setText(formatEventTime(event.getStartTime(), event.getEndTime()));
+                time.setText(AppUtils.formatEventTime(event.getStartTime(), event.getEndTime()));
 
                 if (!TextUtils.isEmpty(event.getLocation())) {
                     location.setText(event.getLocation());
@@ -674,11 +671,6 @@ public class MainActivity extends AppCompatActivity {
                 holder.eventsContainer.addView(eventView);
             }
         }
-    }
-
-    String formatEventTime(long startTime, long endTime) {
-        SimpleDateFormat sdf = new SimpleDateFormat("h:mm a", Locale.getDefault());
-        return sdf.format(new Date(startTime)) + " - " + sdf.format(new Date(endTime));
     }
 
     String getGreeting() {
@@ -706,14 +698,14 @@ public class MainActivity extends AppCompatActivity {
 
     void populateWeatherCard(WeatherResponse weather) {
         currentTemp.setText(String.format(Locale.getDefault(), "%.0f°F", weather.getCurrent().getTemperature()));
-        currentConditions.setText(getWeatherDescription(weather.getCurrent().getWeatherCode()));
-        weatherIcon.setImageResource(getWeatherIconResource(weather.getCurrent().getWeatherCode()));
+        currentConditions.setText(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode()));
+        weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
         if (weather.getDaily().getTemperatureMax() != null && !weather.getDaily().getTemperatureMax().isEmpty()) {
             double maxTemp = weather.getDaily().getTemperatureMax().get(0);
             double minTemp = weather.getDaily().getTemperatureMin().get(0);
             highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f° L:%.0f°", maxTemp, minTemp));
-            dailyForecast.setText(getDailyForecast(weather.getDaily().getWeatherCode().get(0)));
+            dailyForecast.setText(AppUtils.getDailyForecast(weather.getDaily().getWeatherCode().get(0)));
         }
     }
 
@@ -739,7 +731,7 @@ public class MainActivity extends AppCompatActivity {
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
-            String sourceAndTimeText = article.getSource().getName() + " • " + formatPublishedAt(article.getPublishedAt());
+            String sourceAndTimeText = article.getSource().getName() + " • " + AppUtils.formatPublishedAt(article.getPublishedAt());
             sourceTime.setText(sourceAndTimeText);
 
             headlineView.setOnClickListener(v -> {
@@ -758,73 +750,5 @@ public class MainActivity extends AppCompatActivity {
         }
         Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.fade_in);
         holder.container.startAnimation(fadeIn);
-    }
-
-    String formatPublishedAt(String publishedAt) {
-        try {
-            ZonedDateTime zdt = ZonedDateTime.parse(publishedAt, DateTimeFormatter.ISO_DATE_TIME);
-            long hoursAgo = ChronoUnit.HOURS.between(zdt, ZonedDateTime.now());
-            if (hoursAgo < 1) {
-                long minutesAgo = ChronoUnit.MINUTES.between(zdt, ZonedDateTime.now());
-                return minutesAgo + "m ago";
-            } else if (hoursAgo < 24) {
-                return hoursAgo + "h ago";
-            } else {
-                long daysAgo = ChronoUnit.DAYS.between(zdt, ZonedDateTime.now());
-                return daysAgo + "d ago";
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Could not parse date: " + publishedAt, e);
-            return "Just now";
-        }
-    }
-
-    String getWeatherDescription(int weatherCode) {
-        switch (weatherCode) {
-            case 0: return "Clear sky";
-            case 1: return "Mainly clear";
-            case 2: return "Partly cloudy";
-            case 3: return "Overcast";
-            case 45: case 48: return "Fog";
-            case 51: case 53: case 55: return "Drizzle";
-            case 61: case 63: case 65: return "Rain";
-            case 71: case 73: case 75: return "Snow fall";
-            case 80: case 81: case 82: return "Rain showers";
-            case 95: return "Thunderstorm";
-            default: return "Unknown";
-        }
-    }
-
-    String getDailyForecast(int weatherCode) {
-        switch (weatherCode) {
-            case 0: return "Expect clear skies today.";
-            case 1: return "Mainly clear skies expected.";
-            case 2: return "Partly cloudy today.";
-            case 3: return "Expect overcast skies.";
-            case 45: case 48: return "Fog is expected today.";
-            case 51: case 53: case 55: return "Light drizzle possible.";
-            case 61: case 63: case 65: return "Rain expected today.";
-            case 71: case 73: case 75: return "Snowfall is expected.";
-            case 80: case 81: case 82: return "Expect rain showers.";
-            case 95: return "Thunderstorms possible.";
-            default: return "Weather data unavailable.";
-        }
-    }
-
-    int getWeatherIconResource(int weatherCode) {
-        switch (weatherCode) {
-            case 0: return R.drawable.ic_weather_sunny;
-            case 1: case 2: return R.drawable.ic_weather_partly_cloudy;
-            case 3: return R.drawable.ic_weather_cloudy;
-            case 45: case 48: return R.drawable.ic_weather_foggy;
-            case 51: case 53: case 55: case 61: case 63: case 65: case 80: case 81: case 82:
-                return R.drawable.ic_weather_rainy;
-            case 71: case 73: case 75: case 85: case 86:
-                return R.drawable.ic_weather_snowy;
-            case 95: case 96: case 99:
-                return R.drawable.ic_weather_thunderstorm;
-            default:
-                return R.drawable.ic_weather_cloudy;
-        }
     }
 }

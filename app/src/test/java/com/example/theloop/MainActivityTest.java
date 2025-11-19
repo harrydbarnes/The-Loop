@@ -1,17 +1,12 @@
 package com.example.theloop;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
-import android.content.SharedPreferences;
 import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+
+import com.example.theloop.utils.AppUtils;
 
 import java.time.ZonedDateTime;
 
@@ -19,74 +14,61 @@ import java.time.ZonedDateTime;
 @Config(sdk = {28})
 public class MainActivityTest {
 
-    @Mock
-    SharedPreferences mockPrefs;
-
-    @Mock
-    SharedPreferences.Editor mockEditor;
-
-    @Spy
-    private MainActivity mainActivity = Robolectric.buildActivity(MainActivity.class).create().get();
-
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-        doReturn(mockPrefs).when(mainActivity).getSharedPreferences(anyString(), anyInt());
-        when(mockPrefs.edit()).thenReturn(mockEditor);
-    }
+    // Note: We are now testing AppUtils directly as logic has been moved there.
+    // MainActivity logic is now primarily UI binding which is harder to unit test without instrumented tests.
 
     @Test
     public void formatPublishedAt_handlesRecentTime() {
         String now = ZonedDateTime.now().toString();
-        String result = mainActivity.formatPublishedAt(now);
+        String result = AppUtils.formatPublishedAt(now);
         assertTrue(result.contains("m ago"));
     }
 
     @Test
     public void formatPublishedAt_handlesHoursAgo() {
         String hoursAgo = ZonedDateTime.now().minusHours(3).toString();
-        String result = mainActivity.formatPublishedAt(hoursAgo);
+        String result = AppUtils.formatPublishedAt(hoursAgo);
         assertEquals("3h ago", result);
     }
 
     @Test
     public void formatPublishedAt_handlesDaysAgo() {
         String daysAgo = ZonedDateTime.now().minusDays(2).toString();
-        String result = mainActivity.formatPublishedAt(daysAgo);
+        String result = AppUtils.formatPublishedAt(daysAgo);
         assertEquals("2d ago", result);
     }
 
     @Test
     public void getWeatherDescription_mapsCodesCorrectly() {
-        assertEquals("Clear sky", mainActivity.getWeatherDescription(0));
-        assertEquals("Partly cloudy", mainActivity.getWeatherDescription(2));
-        assertEquals("Fog", mainActivity.getWeatherDescription(45));
-        assertEquals("Rain", mainActivity.getWeatherDescription(61));
-        assertEquals("Snow fall", mainActivity.getWeatherDescription(75));
-        assertEquals("Thunderstorm", mainActivity.getWeatherDescription(95));
-        assertEquals("Unknown", mainActivity.getWeatherDescription(1000));
+        assertEquals("Clear sky", AppUtils.getWeatherDescription(0));
+        assertEquals("Partly cloudy", AppUtils.getWeatherDescription(2));
+        assertEquals("Fog", AppUtils.getWeatherDescription(45));
+        assertEquals("Rain", AppUtils.getWeatherDescription(61));
+        assertEquals("Snow fall", AppUtils.getWeatherDescription(75));
+        assertEquals("Thunderstorm", AppUtils.getWeatherDescription(95));
+        assertEquals("Unknown", AppUtils.getWeatherDescription(1000));
     }
 
     @Test
     public void getDailyForecast_mapsCodesCorrectly() {
-        assertEquals("Expect clear skies today.", mainActivity.getDailyForecast(0));
-        assertEquals("Partly cloudy today.", mainActivity.getDailyForecast(2));
-        assertEquals("Fog is expected today.", mainActivity.getDailyForecast(48));
-        assertEquals("Rain expected today.", mainActivity.getDailyForecast(63));
-        assertEquals("Snowfall is expected.", mainActivity.getDailyForecast(73));
-        assertEquals("Thunderstorms possible.", mainActivity.getDailyForecast(95));
-        assertEquals("Weather data unavailable.", mainActivity.getDailyForecast(500));
+        assertEquals("Expect clear skies today.", AppUtils.getDailyForecast(0));
+        assertEquals("Partly cloudy today.", AppUtils.getDailyForecast(2));
+        assertEquals("Fog is expected today.", AppUtils.getDailyForecast(48));
+        assertEquals("Rain expected today.", AppUtils.getDailyForecast(63));
+        assertEquals("Snowfall is expected.", AppUtils.getDailyForecast(73));
+        assertEquals("Thunderstorms possible.", AppUtils.getDailyForecast(95));
+        assertEquals("Weather data unavailable.", AppUtils.getDailyForecast(500));
     }
 
     @Test
     public void getWeatherIconResource_mapsCodesToCorrectDrawables() {
-        assertEquals(R.drawable.ic_weather_sunny, mainActivity.getWeatherIconResource(0));
-        assertEquals(R.drawable.ic_weather_partly_cloudy, mainActivity.getWeatherIconResource(2));
-        assertEquals(R.drawable.ic_weather_cloudy, mainActivity.getWeatherIconResource(3));
-        assertEquals(R.drawable.ic_weather_foggy, mainActivity.getWeatherIconResource(45));
-        assertEquals(R.drawable.ic_weather_rainy, mainActivity.getWeatherIconResource(61));
-        assertEquals(R.drawable.ic_weather_snowy, mainActivity.getWeatherIconResource(71));
-        assertEquals(R.drawable.ic_weather_thunderstorm, mainActivity.getWeatherIconResource(95));
-        assertEquals(R.drawable.ic_weather_cloudy, mainActivity.getWeatherIconResource(999)); // Default case
+        assertEquals(R.drawable.ic_weather_sunny, AppUtils.getWeatherIconResource(0));
+        assertEquals(R.drawable.ic_weather_partly_cloudy, AppUtils.getWeatherIconResource(2));
+        assertEquals(R.drawable.ic_weather_cloudy, AppUtils.getWeatherIconResource(3));
+        assertEquals(R.drawable.ic_weather_foggy, AppUtils.getWeatherIconResource(45));
+        assertEquals(R.drawable.ic_weather_rainy, AppUtils.getWeatherIconResource(61));
+        assertEquals(R.drawable.ic_weather_snowy, AppUtils.getWeatherIconResource(71));
+        assertEquals(R.drawable.ic_weather_thunderstorm, AppUtils.getWeatherIconResource(95));
+        assertEquals(R.drawable.ic_weather_cloudy, AppUtils.getWeatherIconResource(999)); // Default case
     }
 }
