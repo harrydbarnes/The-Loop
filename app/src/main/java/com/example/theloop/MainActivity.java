@@ -698,14 +698,14 @@ public class MainActivity extends AppCompatActivity {
 
     void populateWeatherCard(WeatherResponse weather) {
         currentTemp.setText(String.format(Locale.getDefault(), "%.0f°F", weather.getCurrent().getTemperature()));
-        currentConditions.setText(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode()));
+        currentConditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
         weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
         if (weather.getDaily().getTemperatureMax() != null && !weather.getDaily().getTemperatureMax().isEmpty()) {
             double maxTemp = weather.getDaily().getTemperatureMax().get(0);
             double minTemp = weather.getDaily().getTemperatureMin().get(0);
             highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f° L:%.0f°", maxTemp, minTemp));
-            dailyForecast.setText(AppUtils.getDailyForecast(weather.getDaily().getWeatherCode().get(0)));
+            dailyForecast.setText(getString(AppUtils.getDailyForecast(weather.getDaily().getWeatherCode().get(0))));
         }
     }
 

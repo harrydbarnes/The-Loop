@@ -1,11 +1,14 @@
 package com.example.theloop.utils;
 
 import android.util.Log;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.StringRes;
 import com.example.theloop.R;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
@@ -25,51 +28,54 @@ public final class AppUtils {
 
             long minutes = ChronoUnit.MINUTES.between(zdt, now);
             if (minutes < 1) return "Just now";
-            if (minutes < 60) return minutes + "m ago";
+            if (minutes < 60) return String.format(Locale.getDefault(), "%dm ago", minutes);
 
             long hours = ChronoUnit.HOURS.between(zdt, now);
-            if (hours < 24) return hours + "h ago";
+            if (hours < 24) return String.format(Locale.getDefault(), "%dh ago", hours);
 
             long days = ChronoUnit.DAYS.between(zdt, now);
-            return days + "d ago";
-        } catch (Exception e) {
+            return String.format(Locale.getDefault(), "%dd ago", days);
+        } catch (DateTimeParseException e) {
             Log.e(TAG, "Could not parse date: " + publishedAt, e);
             return "Just now";
         }
     }
 
-    public static String getWeatherDescription(int weatherCode) {
+    @StringRes
+    public static int getWeatherDescription(int weatherCode) {
         switch (weatherCode) {
-            case 0: return "Clear sky";
-            case 1: return "Mainly clear";
-            case 2: return "Partly cloudy";
-            case 3: return "Overcast";
-            case 45: case 48: return "Fog";
-            case 51: case 53: case 55: return "Drizzle";
-            case 61: case 63: case 65: return "Rain";
-            case 71: case 73: case 75: return "Snow fall";
-            case 80: case 81: case 82: return "Rain showers";
-            case 95: return "Thunderstorm";
-            default: return "Unknown";
+            case 0: return R.string.weather_clear_sky;
+            case 1: return R.string.weather_mainly_clear;
+            case 2: return R.string.weather_partly_cloudy;
+            case 3: return R.string.weather_overcast;
+            case 45: case 48: return R.string.weather_fog;
+            case 51: case 53: case 55: return R.string.weather_drizzle;
+            case 61: case 63: case 65: return R.string.weather_rain;
+            case 71: case 73: case 75: return R.string.weather_snow_fall;
+            case 80: case 81: case 82: return R.string.weather_rain_showers;
+            case 95: return R.string.weather_thunderstorm;
+            default: return R.string.weather_unknown;
         }
     }
 
-    public static String getDailyForecast(int weatherCode) {
+    @StringRes
+    public static int getDailyForecast(int weatherCode) {
         switch (weatherCode) {
-            case 0: return "Expect clear skies today.";
-            case 1: return "Mainly clear skies expected.";
-            case 2: return "Partly cloudy today.";
-            case 3: return "Expect overcast skies.";
-            case 45: case 48: return "Fog is expected today.";
-            case 51: case 53: case 55: return "Light drizzle possible.";
-            case 61: case 63: case 65: return "Rain expected today.";
-            case 71: case 73: case 75: return "Snowfall is expected.";
-            case 80: case 81: case 82: return "Expect rain showers.";
-            case 95: return "Thunderstorms possible.";
-            default: return "Weather data unavailable.";
+            case 0: return R.string.forecast_clear;
+            case 1: return R.string.forecast_mainly_clear;
+            case 2: return R.string.forecast_partly_cloudy;
+            case 3: return R.string.forecast_overcast;
+            case 45: case 48: return R.string.forecast_fog;
+            case 51: case 53: case 55: return R.string.forecast_drizzle;
+            case 61: case 63: case 65: return R.string.forecast_rain;
+            case 71: case 73: case 75: return R.string.forecast_snow;
+            case 80: case 81: case 82: return R.string.forecast_showers;
+            case 95: return R.string.forecast_thunderstorm;
+            default: return R.string.forecast_unavailable;
         }
     }
 
+    @DrawableRes
     public static int getWeatherIconResource(int weatherCode) {
         switch (weatherCode) {
             case 0: return R.drawable.ic_weather_sunny;
@@ -90,6 +96,6 @@ public final class AppUtils {
     public static String formatEventTime(long startTime, long endTime) {
         String start = Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
         String end = Instant.ofEpochMilli(endTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
-        return start + " - " + end;
+        return String.format("%s - %s", start, end);
     }
 }

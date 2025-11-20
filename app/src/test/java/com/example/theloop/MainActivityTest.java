@@ -14,9 +14,6 @@ import java.time.ZonedDateTime;
 @Config(sdk = {28})
 public class MainActivityTest {
 
-    // Note: We are now testing AppUtils directly as logic has been moved there.
-    // MainActivity logic is now primarily UI binding which is harder to unit test without instrumented tests.
-
     @Test
     public void formatPublishedAt_handlesRecentTime() {
         String now = ZonedDateTime.now().toString();
@@ -47,24 +44,24 @@ public class MainActivityTest {
 
     @Test
     public void getWeatherDescription_mapsCodesCorrectly() {
-        assertEquals("Clear sky", AppUtils.getWeatherDescription(0));
-        assertEquals("Partly cloudy", AppUtils.getWeatherDescription(2));
-        assertEquals("Fog", AppUtils.getWeatherDescription(45));
-        assertEquals("Rain", AppUtils.getWeatherDescription(61));
-        assertEquals("Snow fall", AppUtils.getWeatherDescription(75));
-        assertEquals("Thunderstorm", AppUtils.getWeatherDescription(95));
-        assertEquals("Unknown", AppUtils.getWeatherDescription(1000));
+        assertEquals(R.string.weather_clear_sky, AppUtils.getWeatherDescription(0));
+        assertEquals(R.string.weather_partly_cloudy, AppUtils.getWeatherDescription(2));
+        assertEquals(R.string.weather_fog, AppUtils.getWeatherDescription(45));
+        assertEquals(R.string.weather_rain, AppUtils.getWeatherDescription(61));
+        assertEquals(R.string.weather_snow_fall, AppUtils.getWeatherDescription(75));
+        assertEquals(R.string.weather_thunderstorm, AppUtils.getWeatherDescription(95));
+        assertEquals(R.string.weather_unknown, AppUtils.getWeatherDescription(1000));
     }
 
     @Test
     public void getDailyForecast_mapsCodesCorrectly() {
-        assertEquals("Expect clear skies today.", AppUtils.getDailyForecast(0));
-        assertEquals("Partly cloudy today.", AppUtils.getDailyForecast(2));
-        assertEquals("Fog is expected today.", AppUtils.getDailyForecast(48));
-        assertEquals("Rain expected today.", AppUtils.getDailyForecast(63));
-        assertEquals("Snowfall is expected.", AppUtils.getDailyForecast(73));
-        assertEquals("Thunderstorms possible.", AppUtils.getDailyForecast(95));
-        assertEquals("Weather data unavailable.", AppUtils.getDailyForecast(500));
+        assertEquals(R.string.forecast_clear, AppUtils.getDailyForecast(0));
+        assertEquals(R.string.forecast_partly_cloudy, AppUtils.getDailyForecast(2));
+        assertEquals(R.string.forecast_fog, AppUtils.getDailyForecast(48));
+        assertEquals(R.string.forecast_rain, AppUtils.getDailyForecast(63));
+        assertEquals(R.string.forecast_snow, AppUtils.getDailyForecast(73));
+        assertEquals(R.string.forecast_thunderstorm, AppUtils.getDailyForecast(95));
+        assertEquals(R.string.forecast_unavailable, AppUtils.getDailyForecast(500));
     }
 
     @Test
