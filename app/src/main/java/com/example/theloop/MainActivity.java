@@ -647,7 +647,7 @@ public class MainActivity extends AppCompatActivity {
                 TextView location = eventView.findViewById(R.id.event_location);
 
                 title.setText(event.getTitle());
-                time.setText(AppUtils.formatEventTime(event.getStartTime(), event.getEndTime()));
+                time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
 
                 if (!TextUtils.isEmpty(event.getLocation())) {
                     location.setText(event.getLocation());
@@ -731,7 +731,7 @@ public class MainActivity extends AppCompatActivity {
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
-            String sourceAndTimeText = article.getSource().getName() + " • " + AppUtils.formatPublishedAt(article.getPublishedAt());
+            String sourceAndTimeText = article.getSource().getName() + " • " + AppUtils.formatPublishedAt(this, article.getPublishedAt());
             sourceTime.setText(sourceAndTimeText);
 
             headlineView.setOnClickListener(v -> {

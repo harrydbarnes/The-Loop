@@ -1,43 +1,42 @@
 package com.example.theloop.utils;
 
+import android.content.Context;
+import android.text.format.DateUtils;
 import android.util.Log;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import com.example.theloop.R;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
-import java.util.Locale;
 
 public final class AppUtils {
 
     private static final String TAG = "AppUtils";
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault());
 
     private AppUtils() {
         // This class is not meant to be instantiated.
     }
 
-    public static String formatPublishedAt(String publishedAt) {
+    public static String formatPublishedAt(@NonNull Context context, String publishedAt) {
         try {
             ZonedDateTime now = ZonedDateTime.now();
             ZonedDateTime zdt = ZonedDateTime.parse(publishedAt, DateTimeFormatter.ISO_DATE_TIME);
 
             long minutes = ChronoUnit.MINUTES.between(zdt, now);
-            if (minutes < 1) return "Just now";
-            if (minutes < 60) return String.format(Locale.getDefault(), "%dm ago", minutes);
+            if (minutes < 1) return context.getString(R.string.just_now);
+            if (minutes < 60) return context.getResources().getQuantityString(R.plurals.time_minutes_ago, (int) minutes, (int) minutes);
 
             long hours = ChronoUnit.HOURS.between(zdt, now);
-            if (hours < 24) return String.format(Locale.getDefault(), "%dh ago", hours);
+            if (hours < 24) return context.getResources().getQuantityString(R.plurals.time_hours_ago, (int) hours, (int) hours);
 
             long days = ChronoUnit.DAYS.between(zdt, now);
-            return String.format(Locale.getDefault(), "%dd ago", days);
+            return context.getResources().getQuantityString(R.plurals.time_days_ago, (int) days, (int) days);
         } catch (DateTimeParseException e) {
             Log.e(TAG, "Could not parse date: " + publishedAt, e);
-            return "Just now";
+            return context.getString(R.string.just_now);
         }
     }
 
@@ -93,9 +92,7 @@ public final class AppUtils {
         }
     }
 
-    public static String formatEventTime(long startTime, long endTime) {
-        String start = Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
-        String end = Instant.ofEpochMilli(endTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
-        return String.format("%s - %s", start, end);
+    public static String formatEventTime(@NonNull Context context, long startTime, long endTime) {
+        return DateUtils.formatDateRange(context, startTime, endTime, DateUtils.FORMAT_SHOW_TIME);
     }
 }

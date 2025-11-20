@@ -1,5 +1,7 @@
 package com.example.theloop;
 
+import android.content.Context;
+import androidx.test.core.app.ApplicationProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -14,32 +16,36 @@ import java.time.ZonedDateTime;
 @Config(sdk = {28})
 public class MainActivityTest {
 
+    private Context context = ApplicationProvider.getApplicationContext();
+
     @Test
     public void formatPublishedAt_handlesRecentTime() {
         String now = ZonedDateTime.now().toString();
-        String result = AppUtils.formatPublishedAt(now);
+        String result = AppUtils.formatPublishedAt(context, now);
         assertEquals("Just now", result);
     }
 
     @Test
     public void formatPublishedAt_handlesMinutesAgo() {
         String minutesAgo = ZonedDateTime.now().minusMinutes(5).toString();
-        String result = AppUtils.formatPublishedAt(minutesAgo);
-        assertEquals("5m ago", result);
+        String result = AppUtils.formatPublishedAt(context, minutesAgo);
+        // Note: The exact string depends on the plural resource configuration.
+        // In English, "5 minutes ago".
+        assertEquals("5 minutes ago", result);
     }
 
     @Test
     public void formatPublishedAt_handlesHoursAgo() {
         String hoursAgo = ZonedDateTime.now().minusHours(3).toString();
-        String result = AppUtils.formatPublishedAt(hoursAgo);
-        assertEquals("3h ago", result);
+        String result = AppUtils.formatPublishedAt(context, hoursAgo);
+        assertEquals("3 hours ago", result);
     }
 
     @Test
     public void formatPublishedAt_handlesDaysAgo() {
         String daysAgo = ZonedDateTime.now().minusDays(2).toString();
-        String result = AppUtils.formatPublishedAt(daysAgo);
-        assertEquals("2d ago", result);
+        String result = AppUtils.formatPublishedAt(context, daysAgo);
+        assertEquals("2 days ago", result);
     }
 
     @Test
