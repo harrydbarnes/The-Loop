@@ -31,6 +31,13 @@ public class MainActivityTest {
     }
 
     @Test
+    public void formatPublishedAt_handlesOneMinuteAgo() {
+        String oneMinuteAgo = ZonedDateTime.now(fixedClock).minusMinutes(1).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, oneMinuteAgo, fixedClock);
+        assertEquals("1 minute ago", result);
+    }
+
+    @Test
     public void formatPublishedAt_handlesMinutesAgo() {
         String minutesAgo = ZonedDateTime.now(fixedClock).minusMinutes(5).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, minutesAgo, fixedClock);
@@ -38,10 +45,24 @@ public class MainActivityTest {
     }
 
     @Test
+    public void formatPublishedAt_handlesOneHourAgo() {
+        String oneHourAgo = ZonedDateTime.now(fixedClock).minusHours(1).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, oneHourAgo, fixedClock);
+        assertEquals("1 hour ago", result);
+    }
+
+    @Test
     public void formatPublishedAt_handlesHoursAgo() {
         String hoursAgo = ZonedDateTime.now(fixedClock).minusHours(3).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, hoursAgo, fixedClock);
         assertEquals("3 hours ago", result);
+    }
+
+    @Test
+    public void formatPublishedAt_handlesOneDayAgo() {
+        String oneDayAgo = ZonedDateTime.now(fixedClock).minusDays(1).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, oneDayAgo, fixedClock);
+        assertEquals("1 day ago", result);
     }
 
     @Test
