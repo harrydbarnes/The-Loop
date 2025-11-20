@@ -7,10 +7,11 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import com.example.theloop.R;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 
 public final class AppUtils {
 
@@ -21,18 +22,24 @@ public final class AppUtils {
     }
 
     public static String formatPublishedAt(@NonNull Context context, String publishedAt) {
+        return formatPublishedAt(context, publishedAt, Clock.systemDefaultZone());
+    }
+
+    public static String formatPublishedAt(@NonNull Context context, String publishedAt, Clock clock) {
         try {
-            ZonedDateTime now = ZonedDateTime.now();
+            ZonedDateTime now = ZonedDateTime.now(clock);
             ZonedDateTime zdt = ZonedDateTime.parse(publishedAt, DateTimeFormatter.ISO_DATE_TIME);
 
-            long minutes = ChronoUnit.MINUTES.between(zdt, now);
+            Duration duration = Duration.between(zdt, now);
+
+            long minutes = duration.toMinutes();
             if (minutes < 1) return context.getString(R.string.just_now);
             if (minutes < 60) return context.getResources().getQuantityString(R.plurals.time_minutes_ago, (int) minutes, (int) minutes);
 
-            long hours = ChronoUnit.HOURS.between(zdt, now);
+            long hours = duration.toHours();
             if (hours < 24) return context.getResources().getQuantityString(R.plurals.time_hours_ago, (int) hours, (int) hours);
 
-            long days = ChronoUnit.DAYS.between(zdt, now);
+            long days = duration.toDays();
             return context.getResources().getQuantityString(R.plurals.time_days_ago, (int) days, (int) days);
         } catch (DateTimeParseException e) {
             Log.e(TAG, "Could not parse date: " + publishedAt, e);

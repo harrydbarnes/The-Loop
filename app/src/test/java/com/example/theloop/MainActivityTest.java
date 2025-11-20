@@ -10,41 +10,44 @@ import static org.junit.Assert.*;
 
 import com.example.theloop.utils.AppUtils;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = {28})
 public class MainActivityTest {
 
     private Context context = ApplicationProvider.getApplicationContext();
+    private Clock fixedClock = Clock.fixed(Instant.parse("2023-10-05T12:00:00Z"), ZoneId.of("UTC"));
 
     @Test
     public void formatPublishedAt_handlesRecentTime() {
-        String now = ZonedDateTime.now().toString();
-        String result = AppUtils.formatPublishedAt(context, now);
+        String now = ZonedDateTime.now(fixedClock).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, now, fixedClock);
         assertEquals("Just now", result);
     }
 
     @Test
     public void formatPublishedAt_handlesMinutesAgo() {
-        String minutesAgo = ZonedDateTime.now().minusMinutes(5).toString();
-        String result = AppUtils.formatPublishedAt(context, minutesAgo);
-        // Note: The exact string depends on the plural resource configuration.
-        // In English, "5 minutes ago".
+        String minutesAgo = ZonedDateTime.now(fixedClock).minusMinutes(5).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, minutesAgo, fixedClock);
         assertEquals("5 minutes ago", result);
     }
 
     @Test
     public void formatPublishedAt_handlesHoursAgo() {
-        String hoursAgo = ZonedDateTime.now().minusHours(3).toString();
-        String result = AppUtils.formatPublishedAt(context, hoursAgo);
+        String hoursAgo = ZonedDateTime.now(fixedClock).minusHours(3).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, hoursAgo, fixedClock);
         assertEquals("3 hours ago", result);
     }
 
     @Test
     public void formatPublishedAt_handlesDaysAgo() {
-        String daysAgo = ZonedDateTime.now().minusDays(2).toString();
-        String result = AppUtils.formatPublishedAt(context, daysAgo);
+        String daysAgo = ZonedDateTime.now(fixedClock).minusDays(2).format(DateTimeFormatter.ISO_DATE_TIME);
+        String result = AppUtils.formatPublishedAt(context, daysAgo, fixedClock);
         assertEquals("2 days ago", result);
     }
 
