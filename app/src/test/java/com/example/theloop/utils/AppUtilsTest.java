@@ -1,4 +1,4 @@
-package com.example.theloop;
+package com.example.theloop.utils;
 
 import android.content.Context;
 import androidx.test.core.app.ApplicationProvider;
@@ -8,8 +8,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 
-import com.example.theloop.utils.AppUtils;
-
+import com.example.theloop.R;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -18,7 +17,7 @@ import java.time.format.DateTimeFormatter;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = {28})
-public class MainActivityTest {
+public class AppUtilsTest {
 
     private Context context = ApplicationProvider.getApplicationContext();
     private Clock fixedClock = Clock.fixed(Instant.parse("2023-10-05T12:00:00Z"), ZoneId.of("UTC"));
@@ -27,49 +26,49 @@ public class MainActivityTest {
     public void formatPublishedAt_handlesRecentTime() {
         String now = ZonedDateTime.now(fixedClock).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, now, fixedClock);
-        assertEquals("Just now", result);
+        assertEquals(context.getString(R.string.just_now), result);
     }
 
     @Test
     public void formatPublishedAt_handlesOneMinuteAgo() {
         String oneMinuteAgo = ZonedDateTime.now(fixedClock).minusMinutes(1).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, oneMinuteAgo, fixedClock);
-        assertEquals("1 minute ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_minutes_ago, 1, 1), result);
     }
 
     @Test
     public void formatPublishedAt_handlesMinutesAgo() {
         String minutesAgo = ZonedDateTime.now(fixedClock).minusMinutes(5).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, minutesAgo, fixedClock);
-        assertEquals("5 minutes ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_minutes_ago, 5, 5), result);
     }
 
     @Test
     public void formatPublishedAt_handlesOneHourAgo() {
         String oneHourAgo = ZonedDateTime.now(fixedClock).minusHours(1).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, oneHourAgo, fixedClock);
-        assertEquals("1 hour ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_hours_ago, 1, 1), result);
     }
 
     @Test
     public void formatPublishedAt_handlesHoursAgo() {
         String hoursAgo = ZonedDateTime.now(fixedClock).minusHours(3).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, hoursAgo, fixedClock);
-        assertEquals("3 hours ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_hours_ago, 3, 3), result);
     }
 
     @Test
     public void formatPublishedAt_handlesOneDayAgo() {
         String oneDayAgo = ZonedDateTime.now(fixedClock).minusDays(1).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, oneDayAgo, fixedClock);
-        assertEquals("1 day ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_days_ago, 1, 1), result);
     }
 
     @Test
     public void formatPublishedAt_handlesDaysAgo() {
         String daysAgo = ZonedDateTime.now(fixedClock).minusDays(2).format(DateTimeFormatter.ISO_DATE_TIME);
         String result = AppUtils.formatPublishedAt(context, daysAgo, fixedClock);
-        assertEquals("2 days ago", result);
+        assertEquals(context.getResources().getQuantityString(R.plurals.time_days_ago, 2, 2), result);
     }
 
     @Test
