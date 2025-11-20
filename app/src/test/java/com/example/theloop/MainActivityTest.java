@@ -21,7 +21,14 @@ public class MainActivityTest {
     public void formatPublishedAt_handlesRecentTime() {
         String now = ZonedDateTime.now().toString();
         String result = AppUtils.formatPublishedAt(now);
-        assertTrue(result.contains("m ago"));
+        assertEquals("Just now", result);
+    }
+
+    @Test
+    public void formatPublishedAt_handlesMinutesAgo() {
+        String minutesAgo = ZonedDateTime.now().minusMinutes(5).toString();
+        String result = AppUtils.formatPublishedAt(minutesAgo);
+        assertEquals("5m ago", result);
     }
 
     @Test

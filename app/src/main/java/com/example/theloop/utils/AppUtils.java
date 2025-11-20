@@ -2,28 +2,36 @@ package com.example.theloop.utils;
 
 import android.util.Log;
 import com.example.theloop.R;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
-public class AppUtils {
+public final class AppUtils {
 
     private static final String TAG = "AppUtils";
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault());
+
+    private AppUtils() {
+        // This class is not meant to be instantiated.
+    }
 
     public static String formatPublishedAt(String publishedAt) {
         try {
+            ZonedDateTime now = ZonedDateTime.now();
             ZonedDateTime zdt = ZonedDateTime.parse(publishedAt, DateTimeFormatter.ISO_DATE_TIME);
-            long hoursAgo = ChronoUnit.HOURS.between(zdt, ZonedDateTime.now());
-            if (hoursAgo < 1) {
-                long minutesAgo = ChronoUnit.MINUTES.between(zdt, ZonedDateTime.now());
-                return minutesAgo + "m ago";
-            } else if (hoursAgo < 24) {
-                return hoursAgo + "h ago";
-            } else {
-                long daysAgo = ChronoUnit.DAYS.between(zdt, ZonedDateTime.now());
-                return daysAgo + "d ago";
-            }
+
+            long minutes = ChronoUnit.MINUTES.between(zdt, now);
+            if (minutes < 1) return "Just now";
+            if (minutes < 60) return minutes + "m ago";
+
+            long hours = ChronoUnit.HOURS.between(zdt, now);
+            if (hours < 24) return hours + "h ago";
+
+            long days = ChronoUnit.DAYS.between(zdt, now);
+            return days + "d ago";
         } catch (Exception e) {
             Log.e(TAG, "Could not parse date: " + publishedAt, e);
             return "Just now";
@@ -80,7 +88,8 @@ public class AppUtils {
     }
 
     public static String formatEventTime(long startTime, long endTime) {
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("h:mm a", Locale.getDefault());
-        return sdf.format(new java.util.Date(startTime)) + " - " + sdf.format(new java.util.Date(endTime));
+        String start = Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
+        String end = Instant.ofEpochMilli(endTime).atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
+        return start + " - " + end;
     }
 }
