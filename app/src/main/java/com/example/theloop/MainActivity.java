@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -46,8 +48,11 @@ import com.example.theloop.network.WeatherApiService;
 import com.example.theloop.utils.AppUtils;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.gson.Gson;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -71,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
     static final String KEY_NEWS_CATEGORY = "news_category";
+    static final String KEY_TEMP_UNIT = "temp_unit"; // celsius or fahrenheit
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
     private static final String KEY_SECTION_ORDER = "section_order";
@@ -95,11 +101,14 @@ public class MainActivity extends AppCompatActivity {
     private TextView currentTemp;
     private TextView currentConditions;
     private TextView highLowTemp;
-    private TextView dailyForecast;
+    private LinearLayout dailyForecastContainer;
+    private TextView weatherLocation;
+    private ImageView weatherSettingsIcon;
 
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
-    private int selectedNewsCategoryIndex = 2; // Default to "general"
+    private String selectedNewsCategory = "US"; // Default category for ok.surf
+    private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
     private String pendingCalendarCardTag;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -108,11 +117,13 @@ public class MainActivity extends AppCompatActivity {
         final ProgressBar progressBar;
         final TextView errorText;
         final LinearLayout container;
+        final ChipGroup chipGroup;
 
         HeadlinesViewHolder(View cardView) {
             progressBar = cardView.findViewById(R.id.headlines_progress_bar);
             errorText = cardView.findViewById(R.id.headlines_error_text);
             container = cardView.findViewById(R.id.headlines_container);
+            chipGroup = cardView.findViewById(R.id.headlines_category_chips);
         }
     }
 
@@ -164,6 +175,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             setupCards();
         }
+
+        weatherSettingsIcon.setOnClickListener(v -> showTemperatureUnitDialog());
     }
 
     @Override
@@ -181,11 +194,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onLocationPermissionGrantedForSetup() {
-        showNewsCategoryDialog(this::onNewsCategorySelected);
-    }
-
-    private void onNewsCategorySelected() {
-        // All setup steps are complete
+        // We no longer ask for news category in setup as it's selectable in the UI
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
         setupCards();
     }
@@ -223,22 +232,22 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showNewsCategoryDialog(Runnable onFinished) {
-        final String[] categories = {"Business", "Entertainment", "General", "Health", "Science", "Sports", "Technology"};
+    private void showTemperatureUnitDialog() {
+        String[] units = {"Celsius", "Fahrenheit"};
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String currentUnit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+        int checkedItem = currentUnit.equals("fahrenheit") ? 1 : 0;
 
         new AlertDialog.Builder(this)
-                .setTitle("Choose a News Category")
-                .setSingleChoiceItems(categories, selectedNewsCategoryIndex, (dialog, which) -> selectedNewsCategoryIndex = which)
-                .setPositiveButton("Save", (dialog, which) -> {
-                    String selectedCategory = categories[selectedNewsCategoryIndex].toLowerCase(Locale.ROOT);
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                            .edit()
-                            .putString(KEY_NEWS_CATEGORY, selectedCategory)
-                            .apply();
-                    onFinished.run();
-                })
-                .setCancelable(false)
-                .show();
+            .setTitle("Select Temperature Unit")
+            .setSingleChoiceItems(units, checkedItem, (dialog, which) -> {
+                String selected = which == 0 ? "celsius" : "fahrenheit";
+                prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
+                dialog.dismiss();
+                fetchLocationAndThenWeatherData(); // Refresh weather
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private void setupCards() {
@@ -259,6 +268,7 @@ public class MainActivity extends AppCompatActivity {
                 case SECTION_HEADLINES:
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
                     cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
+                    setupHeadlinesCard(cardView);
                     fetchNewsData(cardView);
                     break;
                 case SECTION_CALENDAR:
@@ -286,35 +296,71 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void setupHeadlinesCard(View cardView) {
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == View.NO_ID) return;
+            Chip chip = group.findViewById(checkedId);
+            if (chip != null) {
+                selectedNewsCategory = chip.getText().toString();
+                if (cachedNewsResponse != null) {
+                     displayNewsForCategory(cardView, cachedNewsResponse);
+                } else {
+                     fetchNewsData(cardView);
+                }
+            }
+        });
+        // Default selection
+        holder.chipGroup.check(R.id.chip_us);
+    }
+
     private void fetchLocationAndThenWeatherData() {
         if (fusedLocationProviderClient == null) {
-            Log.w(TAG, "FusedLocationProviderClient is null. Attempting to re-initialize.");
             fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-            if (fusedLocationProviderClient == null) {
-                Log.e(TAG, "Failed to re-initialize FusedLocationProviderClient. Cannot fetch location.");
-                // Show a toast message to the user
-                Toast.makeText(this, "Could not access location services. Please try again later.", Toast.LENGTH_SHORT).show();
-                return;
-            }
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+            updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
             return;
         }
         fusedLocationProviderClient.getLastLocation()
                 .addOnSuccessListener(this, location -> {
                     if (location != null) {
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
+                        updateLocationName(location.getLatitude(), location.getLongitude());
                     } else {
-                        Log.w(TAG, "Last location is null, using default.");
                         fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                        updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                     }
                 })
                 .addOnFailureListener(this, e -> {
                     Log.e(TAG, "Failed to get location.", e);
                     fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                    updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                 });
+    }
+
+    private void updateLocationName(double lat, double lon) {
+        executorService.execute(() -> {
+            try {
+                Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+                List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                if (addresses != null && !addresses.isEmpty()) {
+                    String city = addresses.get(0).getLocality();
+                    if (TextUtils.isEmpty(city)) {
+                        city = addresses.get(0).getSubAdminArea();
+                    }
+                    if (TextUtils.isEmpty(city)) {
+                         city = "Unknown Location";
+                    }
+                    final String finalCity = city;
+                    runOnUiThread(() -> weatherLocation.setText(finalCity));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Geocoder failed", e);
+            }
+        });
     }
 
     private void initViews() {
@@ -327,7 +373,9 @@ public class MainActivity extends AppCompatActivity {
         currentTemp = findViewById(R.id.current_temp);
         currentConditions = findViewById(R.id.current_conditions);
         highLowTemp = findViewById(R.id.high_low_temp);
-        dailyForecast = findViewById(R.id.daily_forecast);
+        dailyForecastContainer = findViewById(R.id.daily_forecast_container);
+        weatherLocation = findViewById(R.id.weather_location);
+        weatherSettingsIcon = findViewById(R.id.weather_settings_icon);
     }
 
     private boolean isNetworkAvailable() {
@@ -342,10 +390,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String unit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+
         WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
         String currentParams = "temperature_2m,weather_code";
         String dailyParams = "weather_code,temperature_2m_max,temperature_2m_min";
-        Call<WeatherResponse> call = apiService.getWeather(latitude, longitude, currentParams, dailyParams, "fahrenheit", "auto");
+        Call<WeatherResponse> call = apiService.getWeather(latitude, longitude, currentParams, dailyParams, unit, "auto");
 
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
@@ -390,26 +441,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchNewsData(View cardView) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in fetchNewsData");
-            return;
-        }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
-            return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String category = prefs.getString(KEY_NEWS_CATEGORY, "general");
-
         NewsApiService apiService = NewsRetrofitClient.getClient().create(NewsApiService.class);
-        Call<NewsResponse> call = apiService.getTopHeadlines(category, "us");
+        Call<NewsResponse> call = apiService.getNewsFeed(); // Fetch full feed
 
         call.enqueue(new Callback<NewsResponse>() {
             @Override
@@ -418,8 +457,9 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
                 holder.progressBar.setVisibility(View.GONE);
-                if (response.isSuccessful() && response.body() != null && response.body().getArticles() != null) {
-                    populateHeadlinesCard(cardView, response.body().getArticles());
+                if (response.isSuccessful() && response.body() != null) {
+                    cachedNewsResponse = response.body();
+                    displayNewsForCategory(cardView, cachedNewsResponse);
                     saveToCache(NEWS_CACHE_KEY, response.body());
                 } else {
                     loadNewsFromCache(cardView);
@@ -437,25 +477,40 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void displayNewsForCategory(View cardView, NewsResponse response) {
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        List<Article> articles = null;
+
+        switch (selectedNewsCategory) {
+            case "Business": articles = response.getBusiness(); break;
+            case "Entertainment": articles = response.getEntertainment(); break;
+            case "Health": articles = response.getHealth(); break;
+            case "Science": articles = response.getScience(); break;
+            case "Sports": articles = response.getSports(); break;
+            case "Technology": articles = response.getTechnology(); break;
+            case "US": articles = response.getUs(); break;
+            case "World": articles = response.getWorld(); break;
+            default: articles = response.getUs(); break;
+        }
+
+        if (articles != null) {
+            populateHeadlinesCard(cardView, articles);
+        } else {
+             holder.errorText.setVisibility(View.VISIBLE);
+        }
+    }
+
     private void loadNewsFromCache(View cardView) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in loadNewsFromCache");
-            return;
-        }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in loadNewsFromCache");
-            return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.progressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
         if (cachedJson != null) {
             NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
-            if (cachedResponse != null && cachedResponse.getArticles() != null) {
-                populateHeadlinesCard(cardView, cachedResponse.getArticles());
+            if (cachedResponse != null) {
+                this.cachedNewsResponse = cachedResponse;
+                displayNewsForCategory(cardView, cachedResponse);
             } else {
                 holder.errorText.setVisibility(View.VISIBLE);
             }
@@ -697,7 +752,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void populateWeatherCard(WeatherResponse weather) {
-        currentTemp.setText(String.format(Locale.getDefault(), "%.0f°F", weather.getCurrent().getTemperature()));
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String unit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+        String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
+
+        currentTemp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
         currentConditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
         weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
@@ -705,7 +764,36 @@ public class MainActivity extends AppCompatActivity {
             double maxTemp = weather.getDaily().getTemperatureMax().get(0);
             double minTemp = weather.getDaily().getTemperatureMin().get(0);
             highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f° L:%.0f°", maxTemp, minTemp));
-            dailyForecast.setText(getString(AppUtils.getDailyForecast(weather.getDaily().getWeatherCode().get(0))));
+
+            // Populate 5-day forecast
+            dailyForecastContainer.removeAllViews();
+            LayoutInflater inflater = LayoutInflater.from(this);
+            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            SimpleDateFormat dayFormat = new SimpleDateFormat("EEE d", Locale.getDefault());
+
+            int daysToShow = Math.min(5, weather.getDaily().getWeatherCode().size());
+
+            for (int i = 0; i < daysToShow; i++) {
+                View forecastView = inflater.inflate(R.layout.item_daily_forecast, dailyForecastContainer, false);
+                TextView dayText = forecastView.findViewById(R.id.forecast_day);
+                ImageView icon = forecastView.findViewById(R.id.forecast_icon);
+                TextView high = forecastView.findViewById(R.id.forecast_high);
+                TextView low = forecastView.findViewById(R.id.forecast_low);
+
+                try {
+                    Date date = inputFormat.parse(weather.getDaily().getTime().get(i));
+                    dayText.setText(dayFormat.format(date));
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing weather date", e);
+                    dayText.setText("-");
+                }
+
+                icon.setImageResource(AppUtils.getWeatherIconResource(weather.getDaily().getWeatherCode().get(i)));
+                high.setText(String.format(Locale.getDefault(), "%.0f", weather.getDaily().getTemperatureMax().get(i)));
+                low.setText(String.format(Locale.getDefault(), "%.0f", weather.getDaily().getTemperatureMin().get(i)));
+
+                dailyForecastContainer.addView(forecastView);
+            }
         }
     }
 
