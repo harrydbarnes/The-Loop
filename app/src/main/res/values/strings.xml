@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">The Loop</string>
 
+    <!-- UI Strings -->
+    <string name="select_temperature_unit">Select Temperature Unit</string>
+    <string name="cancel">Cancel</string>
+    <string name="unknown_location">Unknown Location</string>
+
     <!-- Time References -->
     <string name="just_now">Just now</string>
     <plurals name="time_minutes_ago">

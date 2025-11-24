@@ -233,20 +233,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showTemperatureUnitDialog() {
-        String[] units = {"Celsius", "Fahrenheit"};
+        String[] unitsDisplay = getResources().getStringArray(R.array.temp_units_display);
+        String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String currentUnit = prefs.getString(KEY_TEMP_UNIT, "celsius");
-        int checkedItem = currentUnit.equals("fahrenheit") ? 1 : 0;
+        String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
+        int checkedItem = Arrays.asList(unitsValues).indexOf(currentUnit);
+        if (checkedItem == -1) checkedItem = 0;
 
         new AlertDialog.Builder(this)
-            .setTitle("Select Temperature Unit")
-            .setSingleChoiceItems(units, checkedItem, (dialog, which) -> {
-                String selected = which == 0 ? "celsius" : "fahrenheit";
+            .setTitle(R.string.select_temperature_unit)
+            .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
+                String selected = unitsValues[which];
                 prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
                 dialog.dismiss();
                 fetchLocationAndThenWeatherData(); // Refresh weather
             })
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.cancel, null)
             .show();
     }
 
@@ -300,14 +303,23 @@ public class MainActivity extends AppCompatActivity {
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == View.NO_ID) return;
-            Chip chip = group.findViewById(checkedId);
-            if (chip != null) {
-                selectedNewsCategory = chip.getText().toString();
-                if (cachedNewsResponse != null) {
-                     displayNewsForCategory(cardView, cachedNewsResponse);
-                } else {
-                     fetchNewsData(cardView);
-                }
+
+            // Map Chip ID to category string
+            String category = "US"; // Default
+            if (checkedId == R.id.chip_us) category = "US";
+            else if (checkedId == R.id.chip_business) category = "Business";
+            else if (checkedId == R.id.chip_technology) category = "Technology";
+            else if (checkedId == R.id.chip_entertainment) category = "Entertainment";
+            else if (checkedId == R.id.chip_sports) category = "Sports";
+            else if (checkedId == R.id.chip_science) category = "Science";
+            else if (checkedId == R.id.chip_health) category = "Health";
+            else if (checkedId == R.id.chip_world) category = "World";
+
+            selectedNewsCategory = category;
+            if (cachedNewsResponse != null) {
+                 displayNewsForCategory(cardView, cachedNewsResponse);
+            } else {
+                 fetchNewsData(cardView);
             }
         });
         // Default selection
@@ -351,10 +363,8 @@ public class MainActivity extends AppCompatActivity {
                     if (TextUtils.isEmpty(city)) {
                         city = addresses.get(0).getSubAdminArea();
                     }
-                    if (TextUtils.isEmpty(city)) {
-                         city = "Unknown Location";
-                    }
-                    final String finalCity = city;
+
+                    final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
                     runOnUiThread(() -> weatherLocation.setText(finalCity));
                 }
             } catch (Exception e) {

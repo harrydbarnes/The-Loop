@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         tools:text="Tue 18"
         android:textSize="10sp"
-        android:textColor="@android:color/black"
+        android:textColor="?android:attr/textColorSecondary"
         android:layout_marginBottom="4dp"/>
 
     <ImageView
@@ -32,7 +32,7 @@
         tools:text="76"
         android:textStyle="bold"
         android:textSize="14sp"
-        android:textColor="@android:color/black"/>
+        android:textColor="?android:attr/textColorPrimary"/>
 
     <View
         android:layout_width="match_parent"
@@ -45,6 +45,6 @@
         android:layout_height="wrap_content"
         tools:text="39"
         android:textSize="14sp"
-        android:textColor="@android:color/black"/>
+        android:textColor="?android:attr/textColorPrimary"/>
 
 </LinearLayout>

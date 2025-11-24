@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="temp_units_display">
+        <item>Celsius</item>
+        <item>Fahrenheit</item>
+    </string-array>
+    <string-array name="temp_units_values">
+        <item>celsius</item>
+        <item>fahrenheit</item>
+    </string-array>
     <string-array name="fun_facts">
-        <item>A group of flamingos is called a flamboyance.</item>
-        <item>Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible.</item>
-        <item>A single cloud can weigh more than 1 million pounds.</item>
-        <item>The national animal of Scotland is the unicorn.</item>
-        <item>A shrimp\'s heart is in its head.</item>
-        <item>It is impossible for most people to lick their own elbow.</item>
-        <item>A crocodile cannot stick its tongue out.</item>
-        <item>The Eiffel Tower can be 15 cm taller during the summer, due to thermal expansion of the iron.</item>
-        <item>Butterflies taste with their feet.</item>
-        <item>An ostrich\'s eye is bigger than its brain.</item>
+        <item>The shortest war in history lasted 38 minutes.</item>
+        <item>Octopuses have three hearts.</item>
+        <item>Bananas are curved because they grow towards the sun.</item>
+        <item>Honey never spoils.</item>
+        <item>A group of flamingos is called a "flamboyance".</item>
+        <item>Wombat poop is cube-shaped.</item>
+        <item>The Eiffel Tower can be 15 cm taller during the summer.</item>
+        <item>A small child could swim through the veins of a blue whale.</item>
+        <item>The unicorn is the national animal of Scotland.</item>
+        <item>It is impossible to lick your own elbow.</item>
     </string-array>
 </resources>
