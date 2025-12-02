@@ -303,15 +303,17 @@ public class MainActivity extends AppCompatActivity {
             if (checkedId == View.NO_ID) return;
 
             // Map Chip ID to category string
-            String category = "US"; // Default
-            if (checkedId == R.id.chip_us) category = "US";
-            else if (checkedId == R.id.chip_business) category = "Business";
-            else if (checkedId == R.id.chip_technology) category = "Technology";
-            else if (checkedId == R.id.chip_entertainment) category = "Entertainment";
-            else if (checkedId == R.id.chip_sports) category = "Sports";
-            else if (checkedId == R.id.chip_science) category = "Science";
-            else if (checkedId == R.id.chip_health) category = "Health";
-            else if (checkedId == R.id.chip_world) category = "World";
+            String category = switch (checkedId) {
+                case R.id.chip_us -> "US";
+                case R.id.chip_business -> "Business";
+                case R.id.chip_technology -> "Technology";
+                case R.id.chip_entertainment -> "Entertainment";
+                case R.id.chip_sports -> "Sports";
+                case R.id.chip_science -> "Science";
+                case R.id.chip_health -> "Health";
+                case R.id.chip_world -> "World";
+                default -> "US"; // Should not be reached if a chip is always selected
+            };
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
