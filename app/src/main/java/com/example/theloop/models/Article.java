@@ -5,19 +5,16 @@ import com.google.gson.annotations.SerializedName;
 public class Article {
 
     @SerializedName("source")
-    private Source source;
+    private String source;
 
     @SerializedName("title")
     private String title;
 
-    @SerializedName("url")
+    @SerializedName("link")
     private String url;
 
-    @SerializedName("publishedAt")
-    private String publishedAt;
-
     // Getters
-    public Source getSource() {
+    public String getSource() {
         return source;
     }
 
@@ -27,9 +24,5 @@ public class Article {
 
     public String getUrl() {
         return url;
-    }
-
-    public String getPublishedAt() {
-        return publishedAt;
     }
 }

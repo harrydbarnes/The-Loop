@@ -268,27 +268,25 @@ public class MainActivity extends AppCompatActivity {
             View cardView = null;
             String section = sections.get(i);
             switch (section) {
-                case SECTION_HEADLINES:
+                case SECTION_HEADLINES -> {
                     cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
                     cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
                     setupHeadlinesCard(cardView);
                     fetchNewsData(cardView);
-                    break;
-                case SECTION_CALENDAR:
+                }
+                case SECTION_CALENDAR -> {
                     cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
                     String calendarTag = "calendar_card_" + i;
                     cardView.setTag(calendarTag);
                     cardView.setTag(R.id.view_holder_tag, new CalendarViewHolder(cardView));
                     loadCalendarData(cardView);
-                    break;
-                case SECTION_FUN_FACT:
+                }
+                case SECTION_FUN_FACT -> {
                     cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
                     cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
                     loadFunFact(cardView);
-                    break;
-                default:
-                    Log.w(TAG, "Unknown section type: " + section);
-                    break;
+                }
+                default -> Log.w(TAG, "Unknown section type: " + section);
             }
             if (cardView != null) {
                 Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
@@ -755,7 +753,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (!TextUtils.isEmpty(name)) {
-            return greeting + ", " + name;
+            return String.format("%s, %s", greeting, name);
         } else {
             return greeting;
         }
@@ -829,7 +827,9 @@ public class MainActivity extends AppCompatActivity {
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
-            String sourceAndTimeText = article.getSource().getName() + " • " + AppUtils.formatPublishedAt(this, article.getPublishedAt());
+            // String sourceAndTimeText = article.getSource() + " • " + AppUtils.formatPublishedAt(this, article.getPublishedAt());
+            // Date is not available from API
+            String sourceAndTimeText = article.getSource();
             sourceTime.setText(sourceAndTimeText);
 
             headlineView.setOnClickListener(v -> {
