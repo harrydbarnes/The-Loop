@@ -317,9 +317,9 @@ public class MainActivity extends AppCompatActivity {
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
-                 displayNewsForCategory(cardView, cachedNewsResponse);
+                displayNewsForCategory(cardView, cachedNewsResponse);
             } else {
-                 fetchNewsData(cardView);
+                fetchNewsData(cardView);
             }
         });
         // Default selection
