@@ -367,7 +367,7 @@ public class MainActivity extends AppCompatActivity {
                     final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
                     runOnUiThread(() -> weatherLocation.setText(finalCity));
                 }
-            } catch (Exception e) {
+            } catch (java.io.IOException e) {
                 Log.e(TAG, "Geocoder failed", e);
             }
         });
