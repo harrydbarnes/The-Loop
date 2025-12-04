@@ -306,15 +306,16 @@ public class MainActivity extends AppCompatActivity {
             if (checkedId == View.NO_ID) return;
 
             // Map Chip ID to category string
-            String category = "US";
-            if (checkedId == R.id.chip_us) category = "US";
-            else if (checkedId == R.id.chip_business) category = "Business";
-            else if (checkedId == R.id.chip_technology) category = "Technology";
-            else if (checkedId == R.id.chip_entertainment) category = "Entertainment";
-            else if (checkedId == R.id.chip_sports) category = "Sports";
-            else if (checkedId == R.id.chip_science) category = "Science";
-            else if (checkedId == R.id.chip_health) category = "Health";
-            else if (checkedId == R.id.chip_world) category = "World";
+            String category = switch (checkedId) {
+                case R.id.chip_business -> "Business";
+                case R.id.chip_technology -> "Technology";
+                case R.id.chip_entertainment -> "Entertainment";
+                case R.id.chip_sports -> "Sports";
+                case R.id.chip_science -> "Science";
+                case R.id.chip_health -> "Health";
+                case R.id.chip_world -> "World";
+                default -> "US"; // Default to US
+            };
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
@@ -355,23 +356,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateLocationName(double lat, double lon) {
-        executorService.execute(() -> {
-            try {
-                Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
-                List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+        Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(lat, lon, 1, addresses -> {
                 if (addresses != null && !addresses.isEmpty()) {
-                    String city = addresses.get(0).getLocality();
-                    if (TextUtils.isEmpty(city)) {
-                        city = addresses.get(0).getSubAdminArea();
-                    }
-
-                    final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                    runOnUiThread(() -> weatherLocation.setText(finalCity));
+                    processLocationAddresses(addresses);
                 }
-            } catch (java.io.IOException e) {
-                Log.e(TAG, "Geocoder failed", e);
-            }
-        });
+            });
+        } else {
+            executorService.execute(() -> {
+                try {
+                    List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        processLocationAddresses(addresses);
+                    }
+                } catch (java.io.IOException e) {
+                    Log.e(TAG, "Geocoder failed", e);
+                }
+            });
+        }
+    }
+
+    private void processLocationAddresses(List<Address> addresses) {
+        String city = addresses.get(0).getLocality();
+        if (TextUtils.isEmpty(city)) {
+            city = addresses.get(0).getSubAdminArea();
+        }
+
+        final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+        runOnUiThread(() -> weatherLocation.setText(finalCity));
     }
 
     private void initViews() {
@@ -771,7 +784,7 @@ public class MainActivity extends AppCompatActivity {
         if (weather.getDaily().getTemperatureMax() != null && !weather.getDaily().getTemperatureMax().isEmpty()) {
             double maxTemp = weather.getDaily().getTemperatureMax().get(0);
             double minTemp = weather.getDaily().getTemperatureMin().get(0);
-            highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f° L:%.0f°", maxTemp, minTemp));
+            highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
 
             // Populate 5-day forecast
             dailyForecastContainer.removeAllViews();
@@ -795,8 +808,8 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 icon.setImageResource(AppUtils.getWeatherIconResource(weather.getDaily().getWeatherCode().get(i)));
-                high.setText(String.format(Locale.getDefault(), "%.0f", weather.getDaily().getTemperatureMax().get(i)));
-                low.setText(String.format(Locale.getDefault(), "%.0f", weather.getDaily().getTemperatureMin().get(i)));
+                high.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getDaily().getTemperatureMax().get(i), tempSymbol));
+                low.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getDaily().getTemperatureMin().get(i), tempSymbol));
 
                 dailyForecastContainer.addView(forecastView);
             }
