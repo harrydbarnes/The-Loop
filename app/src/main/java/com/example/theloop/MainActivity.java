@@ -110,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
+    private Geocoder geocoder;
     private String selectedNewsCategory = "US"; // Default category for ok.surf
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
@@ -169,6 +170,7 @@ public class MainActivity extends AppCompatActivity {
 
         initViews();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
@@ -241,8 +243,13 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
-        int checkedItem = Arrays.asList(unitsValues).indexOf(currentUnit);
-        if (checkedItem == -1) checkedItem = 0;
+        int checkedItem = 0;
+        for (int i = 0; i < unitsValues.length; i++) {
+            if (unitsValues[i].equals(currentUnit)) {
+                checkedItem = i;
+                break;
+            }
+        }
 
         new AlertDialog.Builder(this)
             .setTitle(R.string.select_temperature_unit)
@@ -301,6 +308,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupHeadlinesCard(View cardView) {
+        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "Invalid ViewHolder tag in setupHeadlinesCard");
+            return;
+        }
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == View.NO_ID) return;
@@ -356,11 +367,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateLocationName(double lat, double lon) {
-        Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             geocoder.getFromLocation(lat, lon, 1, addresses -> {
                 if (addresses != null && !addresses.isEmpty()) {
                     processLocationAddresses(addresses);
+                } else {
+                    runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
                 }
             });
         } else {
@@ -369,9 +381,12 @@ public class MainActivity extends AppCompatActivity {
                     List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
                     if (addresses != null && !addresses.isEmpty()) {
                         processLocationAddresses(addresses);
+                    } else {
+                        runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
                     }
                 } catch (java.io.IOException e) {
                     Log.e(TAG, "Geocoder failed", e);
+                    runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
                 }
             });
         }
@@ -511,8 +526,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void displayNewsForCategory(View cardView, NewsResponse response) {
         if (cardView == null) return;
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
-        if (holder == null) return;
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "Invalid ViewHolder tag in displayNewsForCategory");
+            return;
+        }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
 
         List<Article> articles = switch (selectedNewsCategory) {
             case "Business" -> response.getBusiness();
@@ -534,8 +553,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadNewsFromCache(View cardView) {
         if (cardView == null) return;
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
-        if (holder == null) return;
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
+            Log.e(TAG, "Invalid ViewHolder tag in loadNewsFromCache");
+            return;
+        }
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         holder.progressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -795,8 +818,9 @@ public class MainActivity extends AppCompatActivity {
         weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
         com.example.theloop.models.DailyWeather daily = weather.getDaily();
-        if (daily != null && daily.getTemperatureMax() != null && daily.getTemperatureMin() != null
-                && daily.getWeatherCode() != null && daily.getTime() != null && !daily.getTemperatureMax().isEmpty()) {
+        if (daily != null && daily.getTemperatureMax() != null && !daily.getTemperatureMax().isEmpty()
+                && daily.getTemperatureMin() != null && !daily.getTemperatureMin().isEmpty()
+                && daily.getWeatherCode() != null && daily.getTime() != null) {
             double maxTemp = daily.getTemperatureMax().get(0);
             double minTemp = daily.getTemperatureMin().get(0);
             highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
