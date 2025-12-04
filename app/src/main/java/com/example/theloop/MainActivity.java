@@ -91,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PENDING_CALENDAR_CARD_TAG_KEY = "pending_calendar_card_tag";
 
+    private static final SimpleDateFormat WEATHER_DATE_INPUT_FORMAT = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+    private static final SimpleDateFormat WEATHER_DATE_DAY_FORMAT = new SimpleDateFormat("EEE d", Locale.getDefault());
+
     // Static View variables (Day Ahead and Weather)
     private TextView greetingTextView;
     private TextView summaryTextView;
@@ -303,17 +306,26 @@ public class MainActivity extends AppCompatActivity {
             if (checkedId == View.NO_ID) return;
 
             // Map Chip ID to category string
-            String category = switch (checkedId) {
-                case R.id.chip_us -> "US";
-                case R.id.chip_business -> "Business";
-                case R.id.chip_technology -> "Technology";
-                case R.id.chip_entertainment -> "Entertainment";
-                case R.id.chip_sports -> "Sports";
-                case R.id.chip_science -> "Science";
-                case R.id.chip_health -> "Health";
-                case R.id.chip_world -> "World";
-                default -> "US"; // Should not be reached if a chip is always selected
-            };
+            String category;
+            if (checkedId == R.id.chip_us) {
+                category = "US";
+            } else if (checkedId == R.id.chip_business) {
+                category = "Business";
+            } else if (checkedId == R.id.chip_technology) {
+                category = "Technology";
+            } else if (checkedId == R.id.chip_entertainment) {
+                category = "Entertainment";
+            } else if (checkedId == R.id.chip_sports) {
+                category = "Sports";
+            } else if (checkedId == R.id.chip_science) {
+                category = "Science";
+            } else if (checkedId == R.id.chip_health) {
+                category = "Health";
+            } else if (checkedId == R.id.chip_world) {
+                category = "World";
+            } else {
+                category = "US"; // Should not be reached if a chip is always selected
+            }
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
@@ -489,19 +501,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void displayNewsForCategory(View cardView, NewsResponse response) {
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
-        List<Article> articles = null;
-
-        switch (selectedNewsCategory) {
-            case "Business": articles = response.getBusiness(); break;
-            case "Entertainment": articles = response.getEntertainment(); break;
-            case "Health": articles = response.getHealth(); break;
-            case "Science": articles = response.getScience(); break;
-            case "Sports": articles = response.getSports(); break;
-            case "Technology": articles = response.getTechnology(); break;
-            case "US": articles = response.getUs(); break;
-            case "World": articles = response.getWorld(); break;
-            default: articles = response.getUs(); break;
-        }
+        List<Article> articles = switch (selectedNewsCategory) {
+            case "Business" -> response.getBusiness();
+            case "Entertainment" -> response.getEntertainment();
+            case "Health" -> response.getHealth();
+            case "Science" -> response.getScience();
+            case "Sports" -> response.getSports();
+            case "Technology" -> response.getTechnology();
+            case "World" -> response.getWorld();
+            default -> response.getUs(); // "US" or default
+        };
 
         if (articles != null) {
             populateHeadlinesCard(cardView, articles);
@@ -778,8 +787,6 @@ public class MainActivity extends AppCompatActivity {
             // Populate 5-day forecast
             dailyForecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
-            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            SimpleDateFormat dayFormat = new SimpleDateFormat("EEE d", Locale.getDefault());
 
             int daysToShow = Math.min(5, weather.getDaily().getWeatherCode().size());
 
@@ -791,9 +798,9 @@ public class MainActivity extends AppCompatActivity {
                 TextView low = forecastView.findViewById(R.id.forecast_low);
 
                 try {
-                    Date date = inputFormat.parse(weather.getDaily().getTime().get(i));
-                    dayText.setText(dayFormat.format(date));
-                } catch (Exception e) {
+                    Date date = WEATHER_DATE_INPUT_FORMAT.parse(weather.getDaily().getTime().get(i));
+                    dayText.setText(WEATHER_DATE_DAY_FORMAT.format(date));
+                } catch (java.text.ParseException e) {
                     Log.e(TAG, "Error parsing weather date", e);
                     dayText.setText("-");
                 }
