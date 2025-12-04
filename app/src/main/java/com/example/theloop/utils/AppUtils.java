@@ -2,16 +2,10 @@ package com.example.theloop.utils;
 
 import android.content.Context;
 import android.text.format.DateUtils;
-import android.util.Log;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import com.example.theloop.R;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 
 public final class AppUtils {
 

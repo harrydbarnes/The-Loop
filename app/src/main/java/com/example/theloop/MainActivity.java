@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
     private Geocoder geocoder;
-    private String selectedNewsCategory = "US"; // Default category for ok.surf
+    private int selectedNewsCategory = R.id.chip_us; // Default category ID
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
     private String pendingCalendarCardTag;
@@ -309,11 +309,7 @@ public class MainActivity extends AppCompatActivity {
         holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == View.NO_ID) return;
 
-            Chip chip = group.findViewById(checkedId);
-            if (chip == null) return;
-            String category = chip.getText().toString();
-
-            selectedNewsCategory = category;
+            selectedNewsCategory = checkedId;
             if (cachedNewsResponse != null) {
                 displayNewsForCategory(cardView, cachedNewsResponse);
             } else {
@@ -354,15 +350,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateLocationName(double lat, double lon) {
+        Runnable setUnknownLocation = () -> runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            weatherLocation.setText(getString(R.string.unknown_location));
+        });
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             geocoder.getFromLocation(lat, lon, 1, addresses -> {
                 if (addresses != null && !addresses.isEmpty()) {
                     processLocationAddresses(addresses);
                 } else {
-                    runOnUiThread(() -> {
-                        if (isFinishing() || isDestroyed()) return;
-                        weatherLocation.setText(getString(R.string.unknown_location));
-                    });
+                    setUnknownLocation.run();
                 }
             });
         } else {
@@ -372,17 +370,11 @@ public class MainActivity extends AppCompatActivity {
                     if (addresses != null && !addresses.isEmpty()) {
                         processLocationAddresses(addresses);
                     } else {
-                        runOnUiThread(() -> {
-                            if (isFinishing() || isDestroyed()) return;
-                            weatherLocation.setText(getString(R.string.unknown_location));
-                        });
+                        setUnknownLocation.run();
                     }
                 } catch (java.io.IOException e) {
                     Log.e(TAG, "Geocoder failed", e);
-                    runOnUiThread(() -> {
-                        if (isFinishing() || isDestroyed()) return;
-                        weatherLocation.setText(getString(R.string.unknown_location));
-                    });
+                    setUnknownLocation.run();
                 }
             });
         }
@@ -536,13 +528,13 @@ public class MainActivity extends AppCompatActivity {
         HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
 
         List<Article> articles = switch (selectedNewsCategory) {
-            case "Business" -> response.getBusiness();
-            case "Entertainment" -> response.getEntertainment();
-            case "Health" -> response.getHealth();
-            case "Science" -> response.getScience();
-            case "Sports" -> response.getSports();
-            case "Technology" -> response.getTechnology();
-            case "World" -> response.getWorld();
+            case R.id.chip_business -> response.getBusiness();
+            case R.id.chip_entertainment -> response.getEntertainment();
+            case R.id.chip_health -> response.getHealth();
+            case R.id.chip_science -> response.getScience();
+            case R.id.chip_sports -> response.getSports();
+            case R.id.chip_technology -> response.getTechnology();
+            case R.id.chip_world -> response.getWorld();
             default -> response.getUs(); // "US" or default
         };
 
@@ -880,11 +872,11 @@ public class MainActivity extends AppCompatActivity {
 
             View headlineView = inflater.inflate(R.layout.item_headline, holder.container, false);
             TextView title = headlineView.findViewById(R.id.headline_title);
-            TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
+            TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
             String sourceText = article.getSource();
-            sourceTime.setText(sourceText);
+            sourceTextView.setText(sourceText);
 
             headlineView.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
