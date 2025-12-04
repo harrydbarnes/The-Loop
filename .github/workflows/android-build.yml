@@ -106,8 +106,27 @@ jobs:
           fi
         shell: bash
 
+      - name: Rename APK with version
+        run: |
+          # Extract version name from build.gradle
+          VERSION_NAME=$(grep "versionName" app/build.gradle | head -n1 | awk '{print $2}' | tr -d '"')
+          echo "Detected version: $VERSION_NAME"
+
+          # Find the generated APK
+          APK_PATH=$(find app/build/outputs/apk/debug -name "app-debug.apk" -print -quit)
+
+          if [ -n "$APK_PATH" ]; then
+            NEW_NAME="app/build/outputs/apk/debug/TheLoop-v${VERSION_NAME}-debug.apk"
+            mv "$APK_PATH" "$NEW_NAME"
+            echo "Renamed APK to: $NEW_NAME"
+          else
+            echo "APK not found!"
+            exit 1
+          fi
+        shell: bash
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: the-loop-debug-apk
-          path: app/build/outputs/apk/**/app*-debug*.apk
+          path: app/build/outputs/apk/debug/TheLoop-*.apk

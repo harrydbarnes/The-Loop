@@ -306,26 +306,15 @@ public class MainActivity extends AppCompatActivity {
             if (checkedId == View.NO_ID) return;
 
             // Map Chip ID to category string
-            String category;
-            if (checkedId == R.id.chip_us) {
-                category = "US";
-            } else if (checkedId == R.id.chip_business) {
-                category = "Business";
-            } else if (checkedId == R.id.chip_technology) {
-                category = "Technology";
-            } else if (checkedId == R.id.chip_entertainment) {
-                category = "Entertainment";
-            } else if (checkedId == R.id.chip_sports) {
-                category = "Sports";
-            } else if (checkedId == R.id.chip_science) {
-                category = "Science";
-            } else if (checkedId == R.id.chip_health) {
-                category = "Health";
-            } else if (checkedId == R.id.chip_world) {
-                category = "World";
-            } else {
-                category = "US"; // Should not be reached if a chip is always selected
-            }
+            String category = "US";
+            if (checkedId == R.id.chip_us) category = "US";
+            else if (checkedId == R.id.chip_business) category = "Business";
+            else if (checkedId == R.id.chip_technology) category = "Technology";
+            else if (checkedId == R.id.chip_entertainment) category = "Entertainment";
+            else if (checkedId == R.id.chip_sports) category = "Sports";
+            else if (checkedId == R.id.chip_science) category = "Science";
+            else if (checkedId == R.id.chip_health) category = "Health";
+            else if (checkedId == R.id.chip_world) category = "World";
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
@@ -368,7 +357,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateLocationName(double lat, double lon) {
         executorService.execute(() -> {
             try {
-                Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+                Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
                 List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
                 if (addresses != null && !addresses.isEmpty()) {
                     String city = addresses.get(0).getLocality();
@@ -798,9 +787,9 @@ public class MainActivity extends AppCompatActivity {
                 TextView low = forecastView.findViewById(R.id.forecast_low);
 
                 try {
-                    Date date = WEATHER_DATE_INPUT_FORMAT.parse(weather.getDaily().getTime().get(i));
-                    dayText.setText(WEATHER_DATE_DAY_FORMAT.format(date));
-                } catch (java.text.ParseException e) {
+                    java.time.LocalDate date = java.time.LocalDate.parse(weather.getDaily().getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
+                    dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
+                } catch (Exception e) {
                     Log.e(TAG, "Error parsing weather date", e);
                     dayText.setText("-");
                 }
@@ -836,8 +825,6 @@ public class MainActivity extends AppCompatActivity {
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
-            // String sourceAndTimeText = article.getSource() + " • " + AppUtils.formatPublishedAt(this, article.getPublishedAt());
-            // Date is not available from API
             String sourceAndTimeText = article.getSource();
             sourceTime.setText(sourceAndTimeText);
 
