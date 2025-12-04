@@ -470,11 +470,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in fetchNewsData");
             return;
         }
-        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
              Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
              return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
             return;
@@ -815,12 +816,10 @@ public class MainActivity extends AppCompatActivity {
             dailyForecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
 
-            int minSize = java.util.stream.Stream.of(
-                    daily.getTemperatureMax().size(),
-                    daily.getTemperatureMin().size(),
-                    daily.getWeatherCode().size(),
-                    daily.getTime().size()
-            ).min(Integer::compareTo).orElse(0);
+            int minSize = daily.getTime().size();
+            minSize = Math.min(minSize, daily.getTemperatureMax().size());
+            minSize = Math.min(minSize, daily.getTemperatureMin().size());
+            minSize = Math.min(minSize, daily.getWeatherCode().size());
             int daysToShow = Math.min(5, minSize);
 
             for (int i = 0; i < daysToShow; i++) {
@@ -852,11 +851,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateHeadlinesCard");
             return;
         }
-        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
+        Object tag = cardView.getTag(R.id.view_holder_tag);
+        if (!(tag instanceof HeadlinesViewHolder)) {
              Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
              return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
