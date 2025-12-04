@@ -358,7 +358,10 @@ public class MainActivity extends AppCompatActivity {
                 if (addresses != null && !addresses.isEmpty()) {
                     processLocationAddresses(addresses);
                 } else {
-                    runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        weatherLocation.setText(getString(R.string.unknown_location));
+                    });
                 }
             });
         } else {
@@ -368,11 +371,17 @@ public class MainActivity extends AppCompatActivity {
                     if (addresses != null && !addresses.isEmpty()) {
                         processLocationAddresses(addresses);
                     } else {
-                        runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            weatherLocation.setText(getString(R.string.unknown_location));
+                        });
                     }
                 } catch (java.io.IOException e) {
                     Log.e(TAG, "Geocoder failed", e);
-                    runOnUiThread(() -> weatherLocation.setText(getString(R.string.unknown_location)));
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        weatherLocation.setText(getString(R.string.unknown_location));
+                    });
                 }
             });
         }
@@ -385,7 +394,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-        runOnUiThread(() -> weatherLocation.setText(finalCity));
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            weatherLocation.setText(finalCity);
+        });
     }
 
     private void initViews() {

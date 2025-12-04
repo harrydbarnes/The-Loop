@@ -7,6 +7,8 @@ name: Build Android APK
 on:
   push:
     branches: [ feature/initial-app-build-with-personalization, main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch: {}
 
 jobs:
