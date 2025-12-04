@@ -91,8 +91,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PENDING_CALENDAR_CARD_TAG_KEY = "pending_calendar_card_tag";
 
-    private static final SimpleDateFormat WEATHER_DATE_INPUT_FORMAT = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-    private static final SimpleDateFormat WEATHER_DATE_DAY_FORMAT = new SimpleDateFormat("EEE d", Locale.getDefault());
+    private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
+    private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
 
     // Static View variables (Day Ahead and Weather)
     private TextView greetingTextView;
