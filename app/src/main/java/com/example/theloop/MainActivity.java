@@ -465,6 +465,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchNewsData(View cardView) {
+        if (cardView == null) {
+            Log.e(TAG, "CardView is null in fetchNewsData");
+            return;
+        }
+        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
+             Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
+             return;
+        }
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         if (!isNetworkAvailable()) {
             loadNewsFromCache(cardView);
@@ -502,7 +510,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void displayNewsForCategory(View cardView, NewsResponse response) {
+        if (cardView == null) return;
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        if (holder == null) return;
+
         List<Article> articles = switch (selectedNewsCategory) {
             case "Business" -> response.getBusiness();
             case "Entertainment" -> response.getEntertainment();
@@ -522,7 +533,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadNewsFromCache(View cardView) {
+        if (cardView == null) return;
         HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
+        if (holder == null) return;
         holder.progressBar.setVisibility(View.GONE);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -781,16 +794,21 @@ public class MainActivity extends AppCompatActivity {
         currentConditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
         weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
-        if (weather.getDaily().getTemperatureMax() != null && !weather.getDaily().getTemperatureMax().isEmpty()) {
-            double maxTemp = weather.getDaily().getTemperatureMax().get(0);
-            double minTemp = weather.getDaily().getTemperatureMin().get(0);
+        com.example.theloop.models.DailyWeather daily = weather.getDaily();
+        if (daily != null && daily.getTemperatureMax() != null && daily.getTemperatureMin() != null
+                && daily.getWeatherCode() != null && daily.getTime() != null && !daily.getTemperatureMax().isEmpty()) {
+            double maxTemp = daily.getTemperatureMax().get(0);
+            double minTemp = daily.getTemperatureMin().get(0);
             highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
 
             // Populate 5-day forecast
             dailyForecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
 
-            int daysToShow = Math.min(5, weather.getDaily().getWeatherCode().size());
+            int daysToShow = Math.min(5, daily.getTemperatureMax().size());
+            daysToShow = Math.min(daysToShow, daily.getTemperatureMin().size());
+            daysToShow = Math.min(daysToShow, daily.getWeatherCode().size());
+            daysToShow = Math.min(daysToShow, daily.getTime().size());
 
             for (int i = 0; i < daysToShow; i++) {
                 View forecastView = inflater.inflate(R.layout.item_daily_forecast, dailyForecastContainer, false);
@@ -800,16 +818,16 @@ public class MainActivity extends AppCompatActivity {
                 TextView low = forecastView.findViewById(R.id.forecast_low);
 
                 try {
-                    java.time.LocalDate date = java.time.LocalDate.parse(weather.getDaily().getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
+                    java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
                     dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
                 } catch (Exception e) {
                     Log.e(TAG, "Error parsing weather date", e);
                     dayText.setText("-");
                 }
 
-                icon.setImageResource(AppUtils.getWeatherIconResource(weather.getDaily().getWeatherCode().get(i)));
-                high.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getDaily().getTemperatureMax().get(i), tempSymbol));
-                low.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getDaily().getTemperatureMin().get(i), tempSymbol));
+                icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
+                high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
+                low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
 
                 dailyForecastContainer.addView(forecastView);
             }
@@ -821,12 +839,11 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "CardView is null in populateHeadlinesCard");
             return;
         }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
-            return;
+        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
+             Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
+             return;
         }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
+        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
         holder.container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int count = 0;
