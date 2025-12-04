@@ -75,7 +75,6 @@ public class MainActivity extends AppCompatActivity {
     static final String PREFS_NAME = "TheLoopPrefs";
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
-    static final String KEY_NEWS_CATEGORY = "news_category";
     static final String KEY_TEMP_UNIT = "temp_unit"; // celsius or fahrenheit
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
@@ -325,14 +324,18 @@ public class MainActivity extends AppCompatActivity {
         holder.chipGroup.check(R.id.chip_us);
     }
 
+    private void fetchWeatherForDefaultLocation() {
+        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+        updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+    }
+
     private void fetchLocationAndThenWeatherData() {
         if (fusedLocationProviderClient == null) {
             fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-            updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+            fetchWeatherForDefaultLocation();
             return;
         }
         fusedLocationProviderClient.getLastLocation()
@@ -341,14 +344,12 @@ public class MainActivity extends AppCompatActivity {
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
                         updateLocationName(location.getLatitude(), location.getLongitude());
                     } else {
-                        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-                        updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                        fetchWeatherForDefaultLocation();
                     }
                 })
                 .addOnFailureListener(this, e -> {
                     Log.e(TAG, "Failed to get location.", e);
-                    fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-                    updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                    fetchWeatherForDefaultLocation();
                 });
     }
 
@@ -430,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+        String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
 
         WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
         String currentParams = "temperature_2m,weather_code";

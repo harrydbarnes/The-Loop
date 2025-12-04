@@ -21,32 +21,6 @@ public final class AppUtils {
         // This class is not meant to be instantiated.
     }
 
-    public static String formatPublishedAt(@NonNull Context context, String publishedAt) {
-        return formatPublishedAt(context, publishedAt, Clock.systemDefaultZone());
-    }
-
-    public static String formatPublishedAt(@NonNull Context context, String publishedAt, Clock clock) {
-        try {
-            ZonedDateTime now = ZonedDateTime.now(clock);
-            ZonedDateTime zdt = ZonedDateTime.parse(publishedAt, DateTimeFormatter.ISO_DATE_TIME);
-
-            Duration duration = Duration.between(zdt, now);
-
-            long minutes = duration.toMinutes();
-            if (minutes < 1) return context.getString(R.string.just_now);
-            if (minutes < 60) return context.getResources().getQuantityString(R.plurals.time_minutes_ago, (int) minutes, (int) minutes);
-
-            long hours = duration.toHours();
-            if (hours < 24) return context.getResources().getQuantityString(R.plurals.time_hours_ago, (int) hours, (int) hours);
-
-            long days = duration.toDays();
-            return context.getResources().getQuantityString(R.plurals.time_days_ago, (int) days, (int) days);
-        } catch (DateTimeParseException e) {
-            Log.e(TAG, "Could not parse date: " + publishedAt, e);
-            return context.getString(R.string.just_now);
-        }
-    }
-
     @StringRes
     public static int getWeatherDescription(int weatherCode) {
         return switch (weatherCode) {
@@ -61,23 +35,6 @@ public final class AppUtils {
             case 80, 81, 82 -> R.string.weather_rain_showers;
             case 95 -> R.string.weather_thunderstorm;
             default -> R.string.weather_unknown;
-        };
-    }
-
-    @StringRes
-    public static int getDailyForecast(int weatherCode) {
-        return switch (weatherCode) {
-            case 0 -> R.string.forecast_clear;
-            case 1 -> R.string.forecast_mainly_clear;
-            case 2 -> R.string.forecast_partly_cloudy;
-            case 3 -> R.string.forecast_overcast;
-            case 45, 48 -> R.string.forecast_fog;
-            case 51, 53, 55 -> R.string.forecast_drizzle;
-            case 61, 63, 65 -> R.string.forecast_rain;
-            case 71, 73, 75 -> R.string.forecast_snow;
-            case 80, 81, 82 -> R.string.forecast_showers;
-            case 95 -> R.string.forecast_thunderstorm;
-            default -> R.string.forecast_unavailable;
         };
     }
 
