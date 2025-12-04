@@ -243,13 +243,7 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
-        int checkedItem = 0;
-        for (int i = 0; i < unitsValues.length; i++) {
-            if (unitsValues[i].equals(currentUnit)) {
-                checkedItem = i;
-                break;
-            }
-        }
+        int checkedItem = Math.max(0, Arrays.asList(unitsValues).indexOf(currentUnit));
 
         new AlertDialog.Builder(this)
             .setTitle(R.string.select_temperature_unit)
@@ -316,17 +310,9 @@ public class MainActivity extends AppCompatActivity {
         holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == View.NO_ID) return;
 
-            // Map Chip ID to category string
-            String category = switch (checkedId) {
-                case R.id.chip_business -> "Business";
-                case R.id.chip_technology -> "Technology";
-                case R.id.chip_entertainment -> "Entertainment";
-                case R.id.chip_sports -> "Sports";
-                case R.id.chip_science -> "Science";
-                case R.id.chip_health -> "Health";
-                case R.id.chip_world -> "World";
-                default -> "US"; // Default to US
-            };
+            Chip chip = group.findViewById(checkedId);
+            if (chip == null) return;
+            String category = chip.getText().toString();
 
             selectedNewsCategory = category;
             if (cachedNewsResponse != null) {
@@ -829,10 +815,13 @@ public class MainActivity extends AppCompatActivity {
             dailyForecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
 
-            int daysToShow = Math.min(5, daily.getTemperatureMax().size());
-            daysToShow = Math.min(daysToShow, daily.getTemperatureMin().size());
-            daysToShow = Math.min(daysToShow, daily.getWeatherCode().size());
-            daysToShow = Math.min(daysToShow, daily.getTime().size());
+            int minSize = java.util.stream.Stream.of(
+                    daily.getTemperatureMax().size(),
+                    daily.getTemperatureMin().size(),
+                    daily.getWeatherCode().size(),
+                    daily.getTime().size()
+            ).min(Integer::compareTo).orElse(0);
+            int daysToShow = Math.min(5, minSize);
 
             for (int i = 0; i < daysToShow; i++) {
                 View forecastView = inflater.inflate(R.layout.item_daily_forecast, dailyForecastContainer, false);
@@ -844,7 +833,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
                     dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
-                } catch (Exception e) {
+                } catch (java.time.format.DateTimeParseException e) {
                     Log.e(TAG, "Error parsing weather date", e);
                     dayText.setText("-");
                 }
@@ -879,8 +868,8 @@ public class MainActivity extends AppCompatActivity {
             TextView sourceTime = headlineView.findViewById(R.id.headline_source_time);
 
             title.setText(article.getTitle());
-            String sourceAndTimeText = article.getSource();
-            sourceTime.setText(sourceAndTimeText);
+            String sourceText = article.getSource();
+            sourceTime.setText(sourceText);
 
             headlineView.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
