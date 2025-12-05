@@ -169,7 +169,11 @@ public class MainActivity extends AppCompatActivity {
 
         initViews();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+if (Geocoder.isPresent()) {
+    geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+} else {
+    Log.w(TAG, "Geocoder service not available, location name will not be shown.");
+}
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
