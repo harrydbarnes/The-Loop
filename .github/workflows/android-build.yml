@@ -14,8 +14,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout
@@ -27,86 +25,22 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      # optimized action for gradle caching and distribution
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ANDROID_HOME }}
-          key: ${{ runner.os }}-android-sdk-${{ hashFiles('**/build.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-android-sdk-
+      # This action instantly configures the path to the pre-installed SDK
+      # It takes seconds, whereas downloading manually takes minutes.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install prerequisites
+      - name: Install Android SDK Packages
         run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget curl
-        shell: bash
-
-      - name: Install Android SDK command-line tools (dynamic lookup with retry)
-        run: |
-          set -euo pipefail
-          # Create SDK directory if it doesn't exist
-          sudo mkdir -p "$ANDROID_HOME"
-          sudo chown $USER:$USER "$ANDROID_HOME"
-
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
-          cd "$ANDROID_HOME"
-
-          # Check if cmdline-tools are already installed (cached)
-          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
-            repo_xml=$(mktemp)
-            curl -sS https://dl.google.com/android/repository/repository2-1.xml -o "$repo_xml" || true
-            zip_name=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\\.zip' "$repo_xml" | sort -V | tail -n1 || true)
-
-            if [ -z "$zip_name" ]; then
-              echo "Could not find latest zip in manifest, falling back"
-              zip_name="commandlinetools-linux-11076708_latest.zip"
-            fi
-
-            echo "Downloading $zip_name"
-            for i in 1 2 3; do
-              wget -q "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip && break || sleep 5
-            done
-
-            unzip -qo cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
-            mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
-            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools/"* "$ANDROID_HOME/cmdline-tools/latest/" || true
-            rm -f cmdline-tools.zip || true
-          else
-            echo "cmdline-tools already installed."
-          fi
-        shell: bash
-
-      - name: Install SDK packages and accept licenses
-        run: |
-          set -euo pipefail
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
-
-          # Install required SDK packages for API 34
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" --licenses || true
-        shell: bash
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build debug APK
-        run: |
-          export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-            ./gradlew --no-daemon --stacktrace assembleDebug
-          else
-            echo "Gradle wrapper not found; please add ./gradlew to project"
-            exit 1
-          fi
-        shell: bash
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Rename APK with version
         run: |
@@ -125,7 +59,6 @@ jobs:
             echo "APK not found!"
             exit 1
           fi
-        shell: bash
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
