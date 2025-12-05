@@ -6,7 +6,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class NewsRetrofitClient {
 
     private static Retrofit retrofit = null;
-    private static final String BASE_URL = "https://saurav.tech/NewsAPI/";
+    private static final String BASE_URL = "https://ok.surf/api/v1/";
 
     public static Retrofit getClient() {
         if (retrofit == null) {

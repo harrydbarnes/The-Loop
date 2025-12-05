@@ -7,14 +7,15 @@ name: Build Android APK
 on:
   push:
     branches: [ feature/initial-app-build-with-personalization, main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch: {}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      JAVA_HOME_11: /usr/lib/jvm/java-11-openjdk-amd64
-      ANDROID_HOME: /usr/local/lib/android/sdk   # define once here
+      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout
@@ -53,34 +54,45 @@ jobs:
       - name: Install Android SDK command-line tools (dynamic lookup with retry)
         run: |
           set -euo pipefail
+          # Create SDK directory if it doesn't exist
+          sudo mkdir -p "$ANDROID_HOME"
+          sudo chown $USER:$USER "$ANDROID_HOME"
+
           mkdir -p "$ANDROID_HOME/cmdline-tools"
           cd "$ANDROID_HOME"
 
-          repo_xml=$(mktemp)
-          curl -sS https://dl.google.com/android/repository/repository2-1.xml -o "$repo_xml" || true
-          zip_name=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\\.zip' "$repo_xml" | sort -V | tail -n1 || true)
+          # Check if cmdline-tools are already installed (cached)
+          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            repo_xml=$(mktemp)
+            curl -sS https://dl.google.com/android/repository/repository2-1.xml -o "$repo_xml" || true
+            zip_name=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\\.zip' "$repo_xml" | sort -V | tail -n1 || true)
 
-          if [ -z "$zip_name" ]; then
-            echo "Could not find latest zip in manifest, falling back"
-            zip_name="commandlinetools-linux-13114758_latest.zip"
+            if [ -z "$zip_name" ]; then
+              echo "Could not find latest zip in manifest, falling back"
+              zip_name="commandlinetools-linux-11076708_latest.zip"
+            fi
+
+            echo "Downloading $zip_name"
+            for i in 1 2 3; do
+              wget -q "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip && break || sleep 5
+            done
+
+            unzip -qo cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+            mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools/"* "$ANDROID_HOME/cmdline-tools/latest/" || true
+            rm -f cmdline-tools.zip || true
+          else
+            echo "cmdline-tools already installed."
           fi
-
-          echo "Downloading $zip_name"
-          for i in 1 2 3; do
-            wget -q "https://dl.google.com/android/repository/${zip_name}" -O cmdline-tools.zip && break || sleep 5
-          done
-
-          unzip -qo cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
-          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
-          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools/"* "$ANDROID_HOME/cmdline-tools/latest/" || true
-          rm -f cmdline-tools.zip || true
         shell: bash
 
       - name: Install SDK packages and accept licenses
         run: |
           set -euo pipefail
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" "platform-tools" "platforms;android-33" "build-tools;33.0.2" "platforms;android-31" || true
+
+          # Install required SDK packages for API 34
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" --licenses || true
         shell: bash
 
@@ -89,9 +101,28 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            ./gradlew --no-daemon --stacktrace assembleDebug || ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon --stacktrace assembleDebug
           else
             echo "Gradle wrapper not found; please add ./gradlew to project"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Rename APK with version
+        run: |
+          # Extract version name from build.gradle
+          VERSION_NAME=$(grep "versionName" app/build.gradle | head -n1 | awk '{print $2}' | tr -d '"')
+          echo "Detected version: $VERSION_NAME"
+
+          # Find the generated APK
+          APK_PATH=$(find app/build/outputs/apk/debug -name "app-debug.apk" -print -quit)
+
+          if [ -n "$APK_PATH" ]; then
+            NEW_NAME="app/build/outputs/apk/debug/TheLoop-v${VERSION_NAME}-debug.apk"
+            mv "$APK_PATH" "$NEW_NAME"
+            echo "Renamed APK to: $NEW_NAME"
+          else
+            echo "APK not found!"
             exit 1
           fi
         shell: bash
@@ -100,31 +131,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: the-loop-debug-apk
-          path: app/build/outputs/apk/**/app*-debug*.apk
-
-
-
-# Notes and follow-ups (keep a copy in your repo or README):
-# 1) This workflow produces an unsigned debug APK. If you want a release APK that is
-#    signed with your key, you should add a signing step and store the signing key
-#    and passwords as GitHub Secrets (see comment below in the repo instructions).
-# 2) If your project requires a specific compileSdkVersion or build tools, update
-#    the "platforms;android-33" and "build-tools;33.0.2" lines above to match.
-# 3) To produce a signed release APK, add a Gradle signing configuration and use
-#    the "actions/upload-artifact" step to upload the release output.
-
-# Local build instructions (short):
-# 1) Install Android Studio or Android SDK (cmdline-tools) and Java 17.
-# 2) In the repo root run (recommended using the Gradle wrapper if you add it):
-#      ./gradlew assembleDebug
-#    or if you don't have a wrapper:
-#      gradle assembleDebug
-# 3) The debug APK will be at: app/build/outputs/apk/debug/app-debug.apk
-
-# Optional: to add signing for release builds, add the following to your repo's
-# gradle.properties (store secrets in GitHub Secrets instead for CI):
-#   SIGNING_KEYSTORE_PASSWORD=***
-#   SIGNING_KEY_PASSWORD=***
-#   SIGNING_KEY_ALIAS=***
-#   SIGNING_KEYSTORE_BASE64=***
-# Then decode and write the keystore file in CI and sign with Gradle.
+          path: app/build/outputs/apk/debug/TheLoop-*.apk

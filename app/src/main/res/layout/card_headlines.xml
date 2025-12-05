@@ -21,6 +21,72 @@
             android:textAppearance="?attr/textAppearanceHeadline6"
             android:layout_marginBottom="8dp"/>
 
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/headlines_category_chips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true">
+                <!-- Chips will be added programmatically or statically -->
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_us"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="US"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_business"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Business"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_technology"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Technology"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_entertainment"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Entertainment"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                 <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_sports"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sports"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                 <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_science"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Science"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                 <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_health"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Health"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+                 <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_world"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="World"
+                    style="@style/Widget.MaterialComponents.Chip.Choice"/>
+
+            </com.google.android.material.chip.ChipGroup>
+
+        </HorizontalScrollView>
+
         <ProgressBar
             android:id="@+id/headlines_progress_bar"
             android:layout_width="wrap_content"
