@@ -804,7 +804,7 @@ public class MainActivity extends AppCompatActivity {
 
     void populateWeatherCard(WeatherResponse weather) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+        String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
         currentTemp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
