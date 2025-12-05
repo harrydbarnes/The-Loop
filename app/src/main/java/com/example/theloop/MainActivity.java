@@ -812,22 +812,23 @@ public class MainActivity extends AppCompatActivity {
         weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
         com.example.theloop.models.DailyWeather daily = weather.getDaily();
-        if (daily != null && daily.getTemperatureMax() != null && !daily.getTemperatureMax().isEmpty()
-                && daily.getTemperatureMin() != null && !daily.getTemperatureMin().isEmpty()
+        if (daily != null && daily.getTemperatureMax() != null && daily.getTemperatureMin() != null
                 && daily.getWeatherCode() != null && daily.getTime() != null) {
-            double maxTemp = daily.getTemperatureMax().get(0);
-            double minTemp = daily.getTemperatureMin().get(0);
-            highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
 
             // Populate 5-day forecast
             dailyForecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
 
-            int minSize = daily.getTime().size();
-            minSize = Math.min(minSize, daily.getTemperatureMax().size());
-            minSize = Math.min(minSize, daily.getTemperatureMin().size());
-            minSize = Math.min(minSize, daily.getWeatherCode().size());
+            int minSize = Math.min(daily.getTime().size(),
+                    Math.min(daily.getTemperatureMax().size(),
+                            Math.min(daily.getTemperatureMin().size(), daily.getWeatherCode().size())));
             int daysToShow = Math.min(5, minSize);
+
+            if (minSize > 0) {
+                double maxTemp = daily.getTemperatureMax().get(0);
+                double minTemp = daily.getTemperatureMin().get(0);
+                highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
+            }
 
             for (int i = 0; i < daysToShow; i++) {
                 View forecastView = inflater.inflate(R.layout.item_daily_forecast, dailyForecastContainer, false);
