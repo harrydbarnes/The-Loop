@@ -29,8 +29,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # This step is likely optional on ubuntu-latest as API 34 is often pre-installed,
-      # but keeping it ensures the specific version is present without downloading tools.
+      # This action instantly configures the path to the pre-installed SDK
+      # It takes seconds, whereas downloading manually takes minutes.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Android SDK Packages
         run: |
           yes | sdkmanager --licenses
