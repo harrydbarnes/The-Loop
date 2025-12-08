@@ -28,6 +28,7 @@ public final class AppUtils {
             case 71, 73, 75 -> R.string.weather_snow_fall;
             case 80, 81, 82 -> R.string.weather_rain_showers;
             case 95 -> R.string.weather_thunderstorm;
+            case 96, 99 -> R.string.weather_thunderstorm_with_hail;
             default -> R.string.weather_unknown;
         };
     }

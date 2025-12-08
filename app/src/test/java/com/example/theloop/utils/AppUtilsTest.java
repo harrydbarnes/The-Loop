@@ -24,6 +24,8 @@ public class AppUtilsTest {
         assertEquals(R.string.weather_rain, AppUtils.getWeatherDescription(61));
         assertEquals(R.string.weather_snow_fall, AppUtils.getWeatherDescription(75));
         assertEquals(R.string.weather_thunderstorm, AppUtils.getWeatherDescription(95));
+        assertEquals(R.string.weather_thunderstorm_with_hail, AppUtils.getWeatherDescription(96));
+        assertEquals(R.string.weather_thunderstorm_with_hail, AppUtils.getWeatherDescription(99));
         assertEquals(R.string.weather_unknown, AppUtils.getWeatherDescription(1000));
     }
 

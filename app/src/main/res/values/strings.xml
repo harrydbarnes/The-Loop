@@ -18,6 +18,7 @@
     <string name="weather_snow_fall">Snow fall</string>
     <string name="weather_rain_showers">Rain showers</string>
     <string name="weather_thunderstorm">Thunderstorm</string>
+    <string name="weather_thunderstorm_with_hail">Thunderstorm with hail</string>
     <string name="weather_unknown">Unknown</string>
 
     <!-- Daily Forecasts -->
