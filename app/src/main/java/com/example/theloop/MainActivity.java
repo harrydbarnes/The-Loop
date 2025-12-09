@@ -710,21 +710,19 @@ if (Geocoder.isPresent()) {
                 try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
                     if (cursor != null) {
                         try {
+                            totalEvents = cursor.getCount();
                             int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
                             int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
                             int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
                             int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
                             int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-                            while (cursor.moveToNext()) {
-                                totalEvents++;
-                                if (events.size() < 3) {
-                                    long id = cursor.getLong(idCol);
-                                    String title = cursor.getString(titleCol);
-                                    long startTime = cursor.getLong(startCol);
-                                    long endTime = cursor.getLong(endCol);
-                                    String location = cursor.getString(locationCol);
-                                    events.add(new CalendarEvent(id, title, startTime, endTime, location));
-                                }
+                            while (cursor.moveToNext() && events.size() < 3) {
+                                long id = cursor.getLong(idCol);
+                                String title = cursor.getString(titleCol);
+                                long startTime = cursor.getLong(startCol);
+                                long endTime = cursor.getLong(endCol);
+                                String location = cursor.getString(locationCol);
+                                events.add(new CalendarEvent(id, title, startTime, endTime, location));
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error processing calendar cursor", e);
