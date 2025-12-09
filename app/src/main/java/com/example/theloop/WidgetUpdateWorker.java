@@ -48,7 +48,7 @@ public class WidgetUpdateWorker extends Worker {
                 lat = Double.parseDouble(latStr);
                 lon = Double.parseDouble(lonStr);
             } catch (NumberFormatException e) {
-                // Use default
+                Log.w(TAG, "Could not parse lat/lon from SharedPreferences", e);
             }
         }
 
