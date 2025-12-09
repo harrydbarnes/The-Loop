@@ -33,4 +33,13 @@
     <string name="forecast_showers">Expect rain showers.</string>
     <string name="forecast_thunderstorm">Thunderstorms possible.</string>
     <string name="forecast_unavailable">Weather data unavailable.</string>
+
+    <plurals name="events_count">
+        <item quantity="one">You have 1 event on your calendar today.</item>
+        <item quantity="other">You have %d events on your calendar today.</item>
+    </plurals>
+
+    <string name="calendar_permission_required">Calendar permission required to show events.</string>
+    <string name="calendar_checking">Checking your calendar...</string>
+    <string name="calendar_no_events">A calm day ahead, with zero events on your calendar.</string>
 </resources>

@@ -608,7 +608,19 @@ if (Geocoder.isPresent()) {
 
     private void updateDayAheadCard() {
         greetingTextView.setText(getGreeting());
-        summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            summaryTextView.setText(R.string.calendar_permission_required);
+        } else {
+            summaryTextView.setText(R.string.calendar_checking);
+        }
+    }
+
+    private void updateDayAheadSummary(int eventCount) {
+        if (eventCount == 0) {
+            summaryTextView.setText(R.string.calendar_no_events);
+        } else {
+            summaryTextView.setText(getResources().getQuantityString(R.plurals.events_count, eventCount, eventCount));
+        }
     }
 
     private void loadCalendarData(View cardView) {
@@ -670,8 +682,8 @@ if (Geocoder.isPresent()) {
     }
 
     private void queryCalendarEvents(View cardView) {
-        try {
-            executorService.execute(() -> {
+        executorService.execute(() -> {
+            try {
                 List<CalendarEvent> events = new ArrayList<>();
                 ContentResolver contentResolver = getContentResolver();
                 Uri uri = CalendarContract.Events.CONTENT_URI;
@@ -694,38 +706,44 @@ if (Geocoder.isPresent()) {
                 String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
                 String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
+                        totalEvents = cursor.getCount();
                 try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
                     if (cursor != null) {
-                        try {
-                            int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
-                            int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
-                            int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
-                            int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
-                            int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-                            while (cursor.moveToNext() && events.size() < 3) {
-                                long id = cursor.getLong(idCol);
-                                String title = cursor.getString(titleCol);
-                                long startTime = cursor.getLong(startCol);
-                                long endTime = cursor.getLong(endCol);
-                                String location = cursor.getString(locationCol);
-                                events.add(new CalendarEvent(id, title, startTime, endTime, location));
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error processing calendar cursor", e);
+                        totalEvents = cursor.getCount();
+                        int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                        int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                        int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                        int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                        int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
+                        while (cursor.moveToNext() && events.size() < 3) {
+                            long id = cursor.getLong(idCol);
+                            String title = cursor.getString(titleCol);
+                            long startTime = cursor.getLong(startCol);
+                            long endTime = cursor.getLong(endCol);
+                            String location = cursor.getString(locationCol);
+                            events.add(new CalendarEvent(id, title, startTime, endTime, location));
                         }
                     }
                 }
 
+                final int finalTotalEvents = totalEvents;
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
                     populateCalendarCard(cardView, events);
+                    updateDayAheadSummary(finalTotalEvents);
                 });
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error executing calendar query", e);
-        }
+            } catch (Exception e) {
+                Log.e(TAG, "Error executing calendar query", e);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    updateDayAheadSummary(0);
+                });
+            }
+        });
     }
 
     private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
