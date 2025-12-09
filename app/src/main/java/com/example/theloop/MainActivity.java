@@ -609,15 +609,15 @@ if (Geocoder.isPresent()) {
     private void updateDayAheadCard() {
         greetingTextView.setText(getGreeting());
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            summaryTextView.setText("Calendar permission required to show events.");
+            summaryTextView.setText(R.string.calendar_permission_required);
         } else {
-            summaryTextView.setText("Checking your calendar...");
+            summaryTextView.setText(R.string.calendar_checking);
         }
     }
 
     private void updateDayAheadSummary(int eventCount) {
         if (eventCount == 0) {
-            summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
+            summaryTextView.setText(R.string.calendar_no_events);
         } else {
             summaryTextView.setText(getResources().getQuantityString(R.plurals.events_count, eventCount, eventCount));
         }
