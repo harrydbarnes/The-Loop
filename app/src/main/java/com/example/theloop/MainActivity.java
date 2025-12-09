@@ -608,7 +608,19 @@ if (Geocoder.isPresent()) {
 
     private void updateDayAheadCard() {
         greetingTextView.setText(getGreeting());
-        summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            summaryTextView.setText("Calendar permission required to show events.");
+        } else {
+            summaryTextView.setText("Checking your calendar...");
+        }
+    }
+
+    private void updateDayAheadSummary(int eventCount) {
+        if (eventCount == 0) {
+            summaryTextView.setText("A calm day ahead, with zero events on your calendar.");
+        } else {
+            summaryTextView.setText(getResources().getQuantityString(R.plurals.events_count, eventCount, eventCount));
+        }
     }
 
     private void loadCalendarData(View cardView) {
@@ -694,6 +706,7 @@ if (Geocoder.isPresent()) {
                 String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
                 String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
+                int totalEvents = 0;
                 try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
                     if (cursor != null) {
                         try {
@@ -702,13 +715,16 @@ if (Geocoder.isPresent()) {
                             int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
                             int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
                             int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-                            while (cursor.moveToNext() && events.size() < 3) {
-                                long id = cursor.getLong(idCol);
-                                String title = cursor.getString(titleCol);
-                                long startTime = cursor.getLong(startCol);
-                                long endTime = cursor.getLong(endCol);
-                                String location = cursor.getString(locationCol);
-                                events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                            while (cursor.moveToNext()) {
+                                totalEvents++;
+                                if (events.size() < 3) {
+                                    long id = cursor.getLong(idCol);
+                                    String title = cursor.getString(titleCol);
+                                    long startTime = cursor.getLong(startCol);
+                                    long endTime = cursor.getLong(endCol);
+                                    String location = cursor.getString(locationCol);
+                                    events.add(new CalendarEvent(id, title, startTime, endTime, location));
+                                }
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error processing calendar cursor", e);
@@ -716,11 +732,13 @@ if (Geocoder.isPresent()) {
                     }
                 }
 
+                final int finalTotalEvents = totalEvents;
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
                     populateCalendarCard(cardView, events);
+                    updateDayAheadSummary(finalTotalEvents);
                 });
             });
         } catch (Exception e) {
