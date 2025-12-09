@@ -706,7 +706,7 @@ if (Geocoder.isPresent()) {
                 String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
                 String sortOrder = CalendarContract.Events.DTSTART + " ASC";
 
-                int totalEvents = 0;
+                        totalEvents = cursor.getCount();
                 try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
                     if (cursor != null) {
                         totalEvents = cursor.getCount();
