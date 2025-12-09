@@ -1,6 +1,8 @@
 package com.example.theloop;
 
 import android.Manifest;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
@@ -17,6 +19,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
+import android.speech.tts.TextToSpeech;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
@@ -36,11 +39,23 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.health.connect.client.HealthConnectClient;
+import androidx.health.connect.client.permission.HealthPermission;
+import androidx.health.connect.client.records.StepsRecord;
+import androidx.health.connect.client.request.AggregateRequest;
+import androidx.health.connect.client.time.TimeRangeFilter;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.theloop.models.Article;
 import com.example.theloop.models.CalendarEvent;
+import com.example.theloop.models.FunFactResponse;
 import com.example.theloop.models.NewsResponse;
 import com.example.theloop.models.WeatherResponse;
+import com.example.theloop.network.FunFactApiService;
 import com.example.theloop.network.NewsApiService;
 import com.example.theloop.network.NewsRetrofitClient;
 import com.example.theloop.network.RetrofitClient;
@@ -48,17 +63,20 @@ import com.example.theloop.network.WeatherApiService;
 import com.example.theloop.utils.AppUtils;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
 import com.google.gson.Gson;
 
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Date;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,132 +84,263 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements DashboardAdapter.Binder, TextToSpeech.OnInitListener {
 
     private static final String TAG = "MainActivity";
     private static final int CALENDAR_PERMISSION_REQUEST_CODE = 100;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
-    private static final long CARD_ANIMATION_STAGGER_DELAY_MS = 100L;
+    private static final int HEALTH_PERMISSION_REQUEST_CODE = 102;
+
     static final String PREFS_NAME = "TheLoopPrefs";
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
-    static final String KEY_TEMP_UNIT = "temp_unit"; // celsius or fahrenheit
+    static final String KEY_TEMP_UNIT = "temp_unit";
     private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
     private static final String KEY_SECTION_ORDER = "section_order";
+    private static final String KEY_SUMMARY_CACHE = "summary_cache";
+    static final String KEY_LATITUDE = "last_latitude";
+    static final String KEY_LONGITUDE = "last_longitude";
 
     private static final String SECTION_HEADLINES = "headlines";
     private static final String SECTION_CALENDAR = "calendar";
     private static final String SECTION_FUN_FACT = "fun_fact";
-    private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT;
+    private static final String SECTION_HEALTH = "health";
+    private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
 
-    private static final double DEFAULT_LATITUDE = 51.5480; // Highbury, London
-    private static final double DEFAULT_LONGITUDE = -0.1030; // Highbury, London
-
-    private static final String PENDING_CALENDAR_CARD_TAG_KEY = "pending_calendar_card_tag";
+    private static final double DEFAULT_LATITUDE = 51.5480;
+    private static final double DEFAULT_LONGITUDE = -0.1030;
 
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
 
-    // Static View variables (Day Ahead and Weather)
-    private TextView greetingTextView;
-    private TextView summaryTextView;
-    private ProgressBar weatherProgressBar;
-    private TextView weatherErrorText;
-    private LinearLayout weatherContentLayout;
-    private ImageView weatherIcon;
-    private TextView currentTemp;
-    private TextView currentConditions;
-    private TextView highLowTemp;
-    private LinearLayout dailyForecastContainer;
-    private TextView weatherLocation;
-    private ImageView weatherSettingsIcon;
-
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
     private Geocoder geocoder;
-    private int selectedNewsCategory = R.id.chip_us; // Default category ID
+    private int selectedNewsCategory = R.id.chip_us;
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
-    private String pendingCalendarCardTag;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private DashboardAdapter adapter;
+    private RecyclerView recyclerView;
+    private TextToSpeech textToSpeech;
+    private boolean isTtsReady = false;
+    private HealthConnectClient healthConnectClient;
 
-    private static class HeadlinesViewHolder {
-        final ProgressBar progressBar;
-        final TextView errorText;
-        final LinearLayout container;
-        final ChipGroup chipGroup;
+    // Data State for Summary
+    private WeatherResponse latestWeather;
+    private List<CalendarEvent> latestEvents;
+    private Article topHeadline;
+    private String generatedSummary;
 
-        HeadlinesViewHolder(View cardView) {
-            progressBar = cardView.findViewById(R.id.headlines_progress_bar);
-            errorText = cardView.findViewById(R.id.headlines_error_text);
-            container = cardView.findViewById(R.id.headlines_container);
-            chipGroup = cardView.findViewById(R.id.headlines_category_chips);
-        }
-    }
+    // Data state for Fun Fact
+    private String funFactText;
 
-    private static class CalendarViewHolder {
-        final TextView permissionDeniedText;
-        final TextView noEventsText;
-        final LinearLayout eventsContainer;
-
-        CalendarViewHolder(View cardView) {
-            permissionDeniedText = cardView.findViewById(R.id.calendar_permission_denied_text);
-            noEventsText = cardView.findViewById(R.id.calendar_no_events_text);
-            eventsContainer = cardView.findViewById(R.id.calendar_events_container);
-        }
-    }
-
-    private static class FunFactViewHolder {
-        final TextView funFactText;
-
-        FunFactViewHolder(View cardView) {
-            funFactText = cardView.findViewById(R.id.fun_fact_text);
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (pendingCalendarCardTag != null) {
-            outState.putString(PENDING_CALENDAR_CARD_TAG_KEY, pendingCalendarCardTag);
-        }
-    }
+    // Data state for Health
+    private long stepsToday = -1;
+    private boolean healthPermissionDenied = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        if (savedInstanceState != null) {
-            pendingCalendarCardTag = savedInstanceState.getString(PENDING_CALENDAR_CARD_TAG_KEY);
-        }
-
-        initViews();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-if (Geocoder.isPresent()) {
-    geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
-} else {
-    Log.w(TAG, "Geocoder service not available, location name will not be shown.");
-}
+        if (Geocoder.isPresent()) {
+            geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+        }
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
 
+        initHealthConnect();
+
+        // Init TTS
+        textToSpeech = new TextToSpeech(this, this);
+
         if (isFirstRun) {
             runSetupSequence();
         } else {
-            setupCards();
+            setupRecyclerView();
+            refreshData();
         }
 
-        weatherSettingsIcon.setOnClickListener(v -> showTemperatureUnitDialog());
+        // Schedule Widget Worker
+        PeriodicWorkRequest widgetWorkRequest = new PeriodicWorkRequest.Builder(WidgetUpdateWorker.class, 30, java.util.concurrent.TimeUnit.MINUTES)
+                .build();
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "widget_update",
+                ExistingPeriodicWorkPolicy.KEEP,
+                widgetWorkRequest);
+    }
+
+    private void initHealthConnect() {
+         if (HealthConnectClient.getSdkStatus(this) == HealthConnectClient.SDK_AVAILABLE) {
+             healthConnectClient = HealthConnectClient.getOrCreate(this);
+         }
+    }
+
+    private void setupRecyclerView() {
+        recyclerView = findViewById(R.id.dashboard_recycler_view);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        String[] sections = order.split(",");
+
+        adapter = new DashboardAdapter(this, sections);
+        recyclerView.setAdapter(adapter);
+    }
+
+    private void refreshData() {
+        fetchLocationAndThenWeatherData();
+        // News fetch triggered by bindHeadlines logic or manually here?
+        // Adapter binding triggers it usually, but we need data for summary too.
+        // We can trigger background fetches here.
+        fetchNewsDataForSummary();
+        loadCalendarDataForSummary();
+        fetchFunFact();
+        fetchHealthData();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         executorService.shutdown();
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
     }
+
+    // --- TTS ---
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            int result = textToSpeech.setLanguage(Locale.getDefault());
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.e(TAG, "TTS Language not supported");
+            } else {
+                isTtsReady = true;
+            }
+        } else {
+            Log.e(TAG, "TTS Initialization failed");
+        }
+    }
+
+    private void speakSummary() {
+        if (!isTtsReady || TextUtils.isEmpty(generatedSummary)) return;
+        textToSpeech.speak(generatedSummary, TextToSpeech.QUEUE_FLUSH, null, null);
+    }
+
+    // --- DashboardBinder Implementation ---
+
+    @Override
+    public void bindHeader(DashboardAdapter.HeaderViewHolder holder) {
+        holder.greeting.setText(getGreeting());
+        if (generatedSummary != null) {
+            holder.summary.setText(generatedSummary);
+        } else {
+            holder.summary.setText("Checking your day...");
+        }
+
+        holder.playButton.setOnClickListener(v -> speakSummary());
+    }
+
+    @Override
+    public void bindWeather(DashboardAdapter.WeatherViewHolder holder) {
+        holder.settingsIcon.setOnClickListener(v -> showTemperatureUnitDialog());
+
+        if (latestWeather != null) {
+            holder.progressBar.setVisibility(View.GONE);
+            holder.contentLayout.setVisibility(View.VISIBLE);
+            populateWeatherCard(holder, latestWeather);
+            updateLocationName(holder);
+        } else {
+            // Check cache or show loading/error
+             loadWeatherFromCache(holder);
+        }
+    }
+
+    @Override
+    public void bindHeadlines(DashboardAdapter.HeadlinesViewHolder holder) {
+        holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == View.NO_ID) return;
+            selectedNewsCategory = checkedId;
+            if (cachedNewsResponse != null) {
+                displayNewsForCategory(holder, cachedNewsResponse);
+            } else {
+                fetchNewsData(holder);
+            }
+        });
+
+        if (cachedNewsResponse == null) {
+            fetchNewsData(holder);
+        } else {
+            holder.progressBar.setVisibility(View.GONE);
+            displayNewsForCategory(holder, cachedNewsResponse);
+        }
+    }
+
+    @Override
+    public void bindCalendar(DashboardAdapter.CalendarViewHolder holder) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            holder.permissionDeniedText.setVisibility(View.VISIBLE);
+            holder.eventsContainer.setVisibility(View.GONE);
+            holder.permissionDeniedText.setOnClickListener(v ->
+                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE)
+            );
+        } else {
+            holder.permissionDeniedText.setVisibility(View.GONE);
+            if (latestEvents != null) {
+                 populateCalendarCard(holder, latestEvents);
+            } else {
+                queryCalendarEvents(holder); // Fetch if not ready
+            }
+        }
+    }
+
+    @Override
+    public void bindFunFact(DashboardAdapter.FunFactViewHolder holder) {
+        if (funFactText != null) {
+            holder.funFactText.setText(funFactText);
+        } else {
+            holder.funFactText.setText("Loading fun fact...");
+        }
+    }
+
+    @Override
+    public void bindHealth(DashboardAdapter.HealthViewHolder holder) {
+        if (healthConnectClient == null) {
+            holder.errorText.setText("Health Connect not available");
+            holder.errorText.setVisibility(View.VISIBLE);
+            holder.contentLayout.setVisibility(View.GONE);
+            holder.permissionButton.setVisibility(View.GONE);
+            return;
+        }
+
+        if (stepsToday >= 0) {
+            holder.contentLayout.setVisibility(View.VISIBLE);
+            holder.stepsCount.setText(String.valueOf(stepsToday));
+            holder.permissionButton.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.GONE);
+        } else if (healthPermissionDenied) {
+             holder.contentLayout.setVisibility(View.GONE);
+             holder.permissionButton.setVisibility(View.VISIBLE);
+             holder.permissionButton.setText("Permission Denied (Tap to Open Settings)");
+             holder.permissionButton.setOnClickListener(v -> {
+                 // Intent to open settings? Or just retry?
+                 // Usually we can't re-request immediately if denied twice.
+                 Toast.makeText(this, "Please enable permissions in Health Connect settings", Toast.LENGTH_LONG).show();
+             });
+        } else {
+             holder.contentLayout.setVisibility(View.GONE);
+             holder.permissionButton.setVisibility(View.VISIBLE);
+             holder.permissionButton.setOnClickListener(v -> checkHealthPermissionsAndFetch());
+        }
+    }
+
+    // --- Logic & Helpers ---
 
     private void runSetupSequence() {
         showNameDialog(this::onNameEntered);
@@ -202,9 +351,9 @@ if (Geocoder.isPresent()) {
     }
 
     private void onLocationPermissionGrantedForSetup() {
-        // We no longer ask for news category in setup as it's selectable in the UI
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
-        setupCards();
+        setupRecyclerView();
+        refreshData();
     }
 
     private void showNameDialog(Runnable onFinished) {
@@ -240,620 +389,96 @@ if (Geocoder.isPresent()) {
         }
     }
 
-    private void showTemperatureUnitDialog() {
-        String[] unitsDisplay = getResources().getStringArray(R.array.temp_units_display);
-        String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
-
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
-        int checkedItem = Math.max(0, Arrays.asList(unitsValues).indexOf(currentUnit));
-
-        new AlertDialog.Builder(this)
-            .setTitle(R.string.select_temperature_unit)
-            .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
-                String selected = unitsValues[which];
-                prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
-                dialog.dismiss();
-                fetchLocationAndThenWeatherData(); // Refresh weather
-            })
-            .setNegativeButton(R.string.cancel, null)
-            .show();
-    }
-
-    private void setupCards() {
-        updateDayAheadCard();
-        fetchLocationAndThenWeatherData();
-
-        LinearLayout cardsContainer = findViewById(R.id.cards_container);
-        cardsContainer.removeAllViews();
-
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
-        List<String> sections = new ArrayList<>(Arrays.asList(order.split(",")));
-
-        for (int i = 0; i < sections.size(); i++) {
-            View cardView = null;
-            String section = sections.get(i);
-            switch (section) {
-                case SECTION_HEADLINES -> {
-                    cardView = getLayoutInflater().inflate(R.layout.card_headlines, cardsContainer, false);
-                    cardView.setTag(R.id.view_holder_tag, new HeadlinesViewHolder(cardView));
-                    setupHeadlinesCard(cardView);
-                    fetchNewsData(cardView);
-                }
-                case SECTION_CALENDAR -> {
-                    cardView = getLayoutInflater().inflate(R.layout.card_calendar, cardsContainer, false);
-                    String calendarTag = "calendar_card_" + i;
-                    cardView.setTag(calendarTag);
-                    cardView.setTag(R.id.view_holder_tag, new CalendarViewHolder(cardView));
-                    loadCalendarData(cardView);
-                }
-                case SECTION_FUN_FACT -> {
-                    cardView = getLayoutInflater().inflate(R.layout.card_fun_fact, cardsContainer, false);
-                    cardView.setTag(R.id.view_holder_tag, new FunFactViewHolder(cardView));
-                    loadFunFact(cardView);
-                }
-                default -> Log.w(TAG, "Unknown section type: " + section);
-            }
-            if (cardView != null) {
-                Animation animation = AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom);
-                animation.setStartOffset(i * CARD_ANIMATION_STAGGER_DELAY_MS);
-                cardView.startAnimation(animation);
-                cardsContainer.addView(cardView);
-            }
-        }
-    }
-
-    private void setupHeadlinesCard(View cardView) {
-        if (!(cardView.getTag(R.id.view_holder_tag) instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "Invalid ViewHolder tag in setupHeadlinesCard");
-            return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) cardView.getTag(R.id.view_holder_tag);
-        holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == View.NO_ID) return;
-
-            selectedNewsCategory = checkedId;
-            if (cachedNewsResponse != null) {
-                displayNewsForCategory(cardView, cachedNewsResponse);
-            } else {
-                fetchNewsData(cardView);
-            }
-        });
-        // Default selection
-        holder.chipGroup.check(R.id.chip_us);
-    }
-
-    private void fetchWeatherForDefaultLocation() {
-        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-        updateLocationName(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-    }
+    // --- Weather Logic ---
 
     private void fetchLocationAndThenWeatherData() {
-        if (fusedLocationProviderClient == null) {
-            fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherForDefaultLocation();
+            fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
             return;
         }
         fusedLocationProviderClient.getLastLocation()
                 .addOnSuccessListener(this, location -> {
                     if (location != null) {
+                        // Save location for Widget
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                                .putString(KEY_LATITUDE, String.valueOf(location.getLatitude()))
+                                .putString(KEY_LONGITUDE, String.valueOf(location.getLongitude()))
+                                .apply();
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
-                        updateLocationName(location.getLatitude(), location.getLongitude());
                     } else {
-                        fetchWeatherForDefaultLocation();
+                        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                     }
                 })
                 .addOnFailureListener(this, e -> {
-                    Log.e(TAG, "Failed to get location.", e);
-                    fetchWeatherForDefaultLocation();
+                    fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                 });
     }
 
-    private void updateLocationName(double lat, double lon) {
-        Runnable setUnknownLocation = () -> runOnUiThread(() -> {
-            if (isFinishing() || isDestroyed()) return;
-            weatherLocation.setText(getString(R.string.unknown_location));
-        });
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            geocoder.getFromLocation(lat, lon, 1, addresses -> {
-                if (addresses != null && !addresses.isEmpty()) {
-                    processLocationAddresses(addresses);
-                } else {
-                    setUnknownLocation.run();
-                }
-            });
-        } else {
-            executorService.execute(() -> {
-                try {
-                    List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
-                    if (addresses != null && !addresses.isEmpty()) {
-                        processLocationAddresses(addresses);
-                    } else {
-                        setUnknownLocation.run();
-                    }
-                } catch (java.io.IOException e) {
-                    Log.e(TAG, "Geocoder failed", e);
-                    setUnknownLocation.run();
-                }
-            });
-        }
-    }
-
-    private void processLocationAddresses(List<Address> addresses) {
-        String city = addresses.get(0).getLocality();
-        if (TextUtils.isEmpty(city)) {
-            city = addresses.get(0).getSubAdminArea();
-        }
-
-        final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-        runOnUiThread(() -> {
-            if (isFinishing() || isDestroyed()) {
-                return;
-            }
-            weatherLocation.setText(finalCity);
-        });
-    }
-
-    private void initViews() {
-        greetingTextView = findViewById(R.id.day_ahead_greeting);
-        summaryTextView = findViewById(R.id.day_ahead_summary);
-        weatherProgressBar = findViewById(R.id.weather_progress_bar);
-        weatherErrorText = findViewById(R.id.weather_error_text);
-        weatherContentLayout = findViewById(R.id.weather_content_layout);
-        weatherIcon = findViewById(R.id.weather_icon);
-        currentTemp = findViewById(R.id.current_temp);
-        currentConditions = findViewById(R.id.current_conditions);
-        highLowTemp = findViewById(R.id.high_low_temp);
-        dailyForecastContainer = findViewById(R.id.daily_forecast_container);
-        weatherLocation = findViewById(R.id.weather_location);
-        weatherSettingsIcon = findViewById(R.id.weather_settings_icon);
-    }
-
-    private boolean isNetworkAvailable() {
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
-    }
-
     private void fetchWeatherData(double latitude, double longitude) {
-        if (!isNetworkAvailable()) {
-            loadWeatherFromCache();
-            return;
-        }
-
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
 
         WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
-        String currentParams = "temperature_2m,weather_code";
-        String dailyParams = "weather_code,temperature_2m_max,temperature_2m_min";
-        Call<WeatherResponse> call = apiService.getWeather(latitude, longitude, currentParams, dailyParams, unit, "auto");
+        Call<WeatherResponse> call = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto");
 
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
             public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                weatherProgressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
-                    weatherContentLayout.setVisibility(View.VISIBLE);
-                    Animation fadeIn = AnimationUtils.loadAnimation(MainActivity.this, R.anim.fade_in);
-                    weatherContentLayout.startAnimation(fadeIn);
-                    populateWeatherCard(response.body());
-                    saveToCache(WEATHER_CACHE_KEY, response.body());
-                } else {
-                    loadWeatherFromCache();
+                    latestWeather = response.body();
+                    saveToCache(WEATHER_CACHE_KEY, latestWeather);
+                    adapter.notifyItemChanged(1); // Update Weather card
+                    refreshDailySummary();
+                    updateWidget();
                 }
             }
-
             @Override
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                Log.e(TAG, "Weather API call failed.", t);
-                loadWeatherFromCache();
+                Log.e(TAG, "Weather failed", t);
             }
         });
     }
 
-    private void loadWeatherFromCache() {
+    private void loadWeatherFromCache(DashboardAdapter.WeatherViewHolder holder) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String cachedJson = prefs.getString(WEATHER_CACHE_KEY, null);
-        weatherProgressBar.setVisibility(View.GONE);
-        if (cachedJson != null) {
-            WeatherResponse cachedResponse = gson.fromJson(cachedJson, WeatherResponse.class);
-            weatherContentLayout.setVisibility(View.VISIBLE);
-            populateWeatherCard(cachedResponse);
-        } else {
-            weatherErrorText.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private void fetchNewsData(View cardView) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in fetchNewsData");
-            return;
-        }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-             Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in fetchNewsData");
-             return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
-        if (!isNetworkAvailable()) {
-            loadNewsFromCache(cardView);
-            return;
-        }
-
-        NewsApiService apiService = NewsRetrofitClient.getClient().create(NewsApiService.class);
-        Call<NewsResponse> call = apiService.getNewsFeed(); // Fetch full feed
-
-        call.enqueue(new Callback<NewsResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                holder.progressBar.setVisibility(View.GONE);
-                if (response.isSuccessful() && response.body() != null) {
-                    cachedNewsResponse = response.body();
-                    displayNewsForCategory(cardView, cachedNewsResponse);
-                    saveToCache(NEWS_CACHE_KEY, response.body());
-                } else {
-                    loadNewsFromCache(cardView);
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                Log.e(TAG, "News API call failed.", t);
-                loadNewsFromCache(cardView);
-            }
-        });
-    }
-
-    private void displayNewsForCategory(View cardView, NewsResponse response) {
-        if (cardView == null) return;
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "Invalid ViewHolder tag in displayNewsForCategory");
-            return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
-
-        List<Article> articles = switch (selectedNewsCategory) {
-            case R.id.chip_business -> response.getBusiness();
-            case R.id.chip_entertainment -> response.getEntertainment();
-            case R.id.chip_health -> response.getHealth();
-            case R.id.chip_science -> response.getScience();
-            case R.id.chip_sports -> response.getSports();
-            case R.id.chip_technology -> response.getTechnology();
-            case R.id.chip_world -> response.getWorld();
-            default -> response.getUs(); // "US" or default
-        };
-
-        if (articles != null) {
-            populateHeadlinesCard(cardView, articles);
-        } else {
-             holder.errorText.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private void loadNewsFromCache(View cardView) {
-        if (cardView == null) return;
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-            Log.e(TAG, "Invalid ViewHolder tag in loadNewsFromCache");
-            return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
         holder.progressBar.setVisibility(View.GONE);
-
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
         if (cachedJson != null) {
-            NewsResponse cachedResponse = gson.fromJson(cachedJson, NewsResponse.class);
-            if (cachedResponse != null) {
-                this.cachedNewsResponse = cachedResponse;
-                displayNewsForCategory(cardView, cachedResponse);
-            } else {
-                holder.errorText.setVisibility(View.VISIBLE);
-            }
+            latestWeather = gson.fromJson(cachedJson, WeatherResponse.class);
+            holder.contentLayout.setVisibility(View.VISIBLE);
+            populateWeatherCard(holder, latestWeather);
+            updateLocationName(holder);
         } else {
             holder.errorText.setVisibility(View.VISIBLE);
         }
     }
 
-    private void saveToCache(String key, Object data) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        String json = gson.toJson(data);
-        editor.putString(key, json);
-        editor.apply();
-    }
-
-    private void loadFunFact(View cardView) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in loadFunFact");
-            return;
-        }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof FunFactViewHolder)) {
-            Log.e(TAG, "ViewHolder is not of type FunFactViewHolder in loadFunFact");
-            return;
-        }
-        FunFactViewHolder holder = (FunFactViewHolder) tag;
-        try {
-            Resources res = getResources();
-            String[] funFacts = res.getStringArray(R.array.fun_facts);
-            Calendar calendar = Calendar.getInstance();
-            int dayOfYear = calendar.get(Calendar.DAY_OF_YEAR);
-            int factIndex = dayOfYear % funFacts.length;
-            holder.funFactText.setText(funFacts[factIndex]);
-        } catch (Exception e) {
-            Log.e(TAG, "Could not load fun fact", e);
-            holder.funFactText.setText("Could not load a fun fact today. Try again later!");
-        }
-    }
-
-    private void updateDayAheadCard() {
-        greetingTextView.setText(getGreeting());
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            summaryTextView.setText(R.string.calendar_permission_required);
-        } else {
-            summaryTextView.setText(R.string.calendar_checking);
-        }
-    }
-
-    private void updateDayAheadSummary(int eventCount) {
-        if (eventCount == 0) {
-            summaryTextView.setText(R.string.calendar_no_events);
-        } else {
-            summaryTextView.setText(getResources().getQuantityString(R.plurals.events_count, eventCount, eventCount));
-        }
-    }
-
-    private void loadCalendarData(View cardView) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in loadCalendarData");
-            return;
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            Object tag = cardView.getTag();
-            if (tag instanceof String) {
-                pendingCalendarCardTag = (String) tag;
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE);
-            } else {
-                Log.e(TAG, "Calendar card does not have a valid string tag for permission request.");
-            }
-        } else {
-            queryCalendarEvents(cardView);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (pendingCalendarCardTag != null) {
-                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
-                    if (calendarCard != null) {
-                        queryCalendarEvents(calendarCard);
-                    }
-                }
-            } else {
-                if (pendingCalendarCardTag != null) {
-                    View calendarCard = findViewById(R.id.cards_container).findViewWithTag(pendingCalendarCardTag);
-                    if (calendarCard != null) {
-                        Object tag = calendarCard.getTag(R.id.view_holder_tag);
-                        if (tag instanceof CalendarViewHolder) {
-                            CalendarViewHolder holder = (CalendarViewHolder) tag;
-                            holder.permissionDeniedText.setVisibility(View.VISIBLE);
-                        } else {
-                            Log.e(TAG, "Could not find CalendarViewHolder for tag: " + pendingCalendarCardTag);
-                        }
-                    }
-                }
-            }
-            pendingCalendarCardTag = null;
-        } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (onLocationPermissionGranted != null) {
-                    onLocationPermissionGranted.run();
-                }
-            } else {
-                Toast.makeText(this, "Location permission denied. Using default location for weather.", Toast.LENGTH_LONG).show();
-                if (onLocationPermissionGranted != null) {
-                    onLocationPermissionGranted.run();
-                }
-            }
-        }
-    }
-
-    private void queryCalendarEvents(View cardView) {
-        executorService.execute(() -> {
-            try {
-                List<CalendarEvent> events = new ArrayList<>();
-                ContentResolver contentResolver = getContentResolver();
-                Uri uri = CalendarContract.Events.CONTENT_URI;
-
-                String[] projection = new String[]{
-                        CalendarContract.Events._ID,
-                        CalendarContract.Events.TITLE,
-                        CalendarContract.Events.DTSTART,
-                        CalendarContract.Events.DTEND,
-                        CalendarContract.Events.EVENT_LOCATION
-                };
-
-                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
-                long now = System.currentTimeMillis();
-                Calendar cal = Calendar.getInstance();
-                cal.setTimeInMillis(now);
-                cal.add(Calendar.HOUR_OF_DAY, 24);
-                long queryCutoffTime = cal.getTimeInMillis();
-
-                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(queryCutoffTime)};
-                String sortOrder = CalendarContract.Events.DTSTART + " ASC";
-
-                        totalEvents = cursor.getCount();
-                try (Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)) {
-                    if (cursor != null) {
-                        totalEvents = cursor.getCount();
-                        int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
-                        int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
-                        int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
-                        int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
-                        int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-                        while (cursor.moveToNext() && events.size() < 3) {
-                            long id = cursor.getLong(idCol);
-                            String title = cursor.getString(titleCol);
-                            long startTime = cursor.getLong(startCol);
-                            long endTime = cursor.getLong(endCol);
-                            String location = cursor.getString(locationCol);
-                            events.add(new CalendarEvent(id, title, startTime, endTime, location));
-                        }
-                    }
-                }
-
-                final int finalTotalEvents = totalEvents;
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
-                    populateCalendarCard(cardView, events);
-                    updateDayAheadSummary(finalTotalEvents);
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Error executing calendar query", e);
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
-                    updateDayAheadSummary(0);
-                });
-            }
-        });
-    }
-
-    private void populateCalendarCard(View cardView, List<CalendarEvent> events) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in populateCalendarCard");
-            return;
-        }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof CalendarViewHolder)) {
-            Log.e(TAG, "ViewHolder is not of type CalendarViewHolder in populateCalendarCard");
-            return;
-        }
-        CalendarViewHolder holder = (CalendarViewHolder) tag;
-        holder.permissionDeniedText.setVisibility(View.GONE);
-        holder.eventsContainer.removeAllViews();
-        if (events.isEmpty()) {
-            holder.noEventsText.setVisibility(View.VISIBLE);
-            holder.eventsContainer.setVisibility(View.GONE);
-        } else {
-            holder.noEventsText.setVisibility(View.GONE);
-            holder.eventsContainer.setVisibility(View.VISIBLE);
-            Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.fade_in);
-            holder.eventsContainer.startAnimation(fadeIn);
-            LayoutInflater inflater = LayoutInflater.from(this);
-            for (CalendarEvent event : events) {
-                View eventView = inflater.inflate(R.layout.item_calendar_event, holder.eventsContainer, false);
-                TextView title = eventView.findViewById(R.id.event_title);
-                TextView time = eventView.findViewById(R.id.event_time);
-                TextView location = eventView.findViewById(R.id.event_location);
-
-                title.setText(event.getTitle());
-                time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
-
-                if (!TextUtils.isEmpty(event.getLocation())) {
-                    location.setText(event.getLocation());
-                    location.setVisibility(View.VISIBLE);
-                } else {
-                    location.setVisibility(View.GONE);
-                }
-
-                eventView.setOnClickListener(v -> {
-                    v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
-                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
-                    try {
-                        startActivity(intent);
-                    } catch (android.content.ActivityNotFoundException e) {
-                        Toast.makeText(v.getContext(), "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Failed to open calendar event", e);
-                    }
-                });
-
-                holder.eventsContainer.addView(eventView);
-            }
-        }
-    }
-
-    String getGreeting() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String name = prefs.getString(KEY_USER_NAME, "");
-
-        Calendar c = Calendar.getInstance();
-        int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
-
-        String greeting;
-        if (timeOfDay >= 0 && timeOfDay < 12) {
-            greeting = "Good morning";
-        } else if (timeOfDay >= 12 && timeOfDay < 17) {
-            greeting = "Good afternoon";
-        } else {
-            greeting = "Good evening";
-        }
-
-        if (!TextUtils.isEmpty(name)) {
-            return String.format("%s, %s", greeting, name);
-        } else {
-            return greeting;
-        }
-    }
-
-    void populateWeatherCard(WeatherResponse weather) {
+    private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
-        currentTemp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
-        currentConditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
-        weatherIcon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
+        holder.temp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
+        holder.conditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
+        holder.icon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
         com.example.theloop.models.DailyWeather daily = weather.getDaily();
-        if (daily != null && daily.getTemperatureMax() != null && daily.getTemperatureMin() != null
-                && daily.getWeatherCode() != null && daily.getTime() != null) {
-
-            // Populate 5-day forecast
-            dailyForecastContainer.removeAllViews();
+        if (daily != null && daily.getTime() != null) {
+            holder.forecastContainer.removeAllViews();
             LayoutInflater inflater = LayoutInflater.from(this);
-
             int minSize = Math.min(daily.getTime().size(),
-                    Math.min(daily.getTemperatureMax().size(),
-                            Math.min(daily.getTemperatureMin().size(), daily.getWeatherCode().size())));
+                Math.min(daily.getTemperatureMax().size(), daily.getWeatherCode().size()));
             int daysToShow = Math.min(5, minSize);
 
-            if (minSize > 0) {
+             if (minSize > 0) {
                 double maxTemp = daily.getTemperatureMax().get(0);
                 double minTemp = daily.getTemperatureMin().get(0);
-                highLowTemp.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
+                holder.highLow.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
             }
 
             for (int i = 0; i < daysToShow; i++) {
-                View forecastView = inflater.inflate(R.layout.item_daily_forecast, dailyForecastContainer, false);
+                View forecastView = inflater.inflate(R.layout.item_daily_forecast, holder.forecastContainer, false);
                 TextView dayText = forecastView.findViewById(R.id.forecast_day);
                 ImageView icon = forecastView.findViewById(R.id.forecast_icon);
                 TextView high = forecastView.findViewById(R.id.forecast_high);
@@ -862,60 +487,357 @@ if (Geocoder.isPresent()) {
                 try {
                     java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
                     dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
-                } catch (java.time.format.DateTimeParseException e) {
-                    Log.e(TAG, "Error parsing weather date", e);
-                    dayText.setText("-");
-                }
+                } catch (Exception e) { dayText.setText("-"); }
 
                 icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
                 high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
                 low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
 
-                dailyForecastContainer.addView(forecastView);
+                holder.forecastContainer.addView(forecastView);
             }
         }
     }
 
-    void populateHeadlinesCard(View cardView, List<Article> articles) {
-        if (cardView == null) {
-            Log.e(TAG, "CardView is null in populateHeadlinesCard");
+    private void updateLocationName(DashboardAdapter.WeatherViewHolder holder) {
+        if (holder == null || holder.location == null) return;
+
+        // This is a bit tricky with RecyclerView recycling, but for now we re-fetch location name each bind or cache it.
+        // For simplicity, let's just show Unknown or last known.
+        // Real implementation should cache location name.
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            holder.location.setText(R.string.unknown_location);
             return;
         }
-        Object tag = cardView.getTag(R.id.view_holder_tag);
-        if (!(tag instanceof HeadlinesViewHolder)) {
-             Log.e(TAG, "ViewHolder is not of type HeadlinesViewHolder in populateHeadlinesCard");
-             return;
-        }
-        HeadlinesViewHolder holder = (HeadlinesViewHolder) tag;
-        holder.container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(this);
-        int count = 0;
-        for (Article article : articles) {
-            if (count >= 3) break;
 
-            View headlineView = inflater.inflate(R.layout.item_headline, holder.container, false);
-            TextView title = headlineView.findViewById(R.id.headline_title);
-            TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
+        fusedLocationProviderClient.getLastLocation().addOnSuccessListener(location -> {
+             if (location == null) {
+                 holder.location.setText(R.string.unknown_location);
+                 return;
+             }
+             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, addresses -> {
+                    String city = "";
+                    if (addresses != null && !addresses.isEmpty()) {
+                         city = addresses.get(0).getLocality();
+                         if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
+                    }
+                    final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                    runOnUiThread(() -> holder.location.setText(finalCity));
+                });
+            } else {
+                executorService.execute(() -> {
+                    try {
+                        List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                        String city = "";
+                        if (addresses != null && !addresses.isEmpty()) {
+                            city = addresses.get(0).getLocality();
+                             if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
+                        }
+                        final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                        runOnUiThread(() -> holder.location.setText(finalCity));
+                    } catch (Exception e) {}
+                });
+            }
+        });
+    }
 
-            title.setText(article.getTitle());
-            String sourceText = article.getSource();
-            sourceTextView.setText(sourceText);
+    private void showTemperatureUnitDialog() {
+         String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
+         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-            headlineView.setOnClickListener(v -> {
-                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl()));
-                try {
-                    startActivity(browserIntent);
-                } catch (android.content.ActivityNotFoundException e) {
-                    Toast.makeText(v.getContext(), "No browser found to open link.", Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Failed to open article link", e);
+         new AlertDialog.Builder(this)
+            .setTitle(R.string.select_temperature_unit)
+            .setSingleChoiceItems(R.array.temp_units_display, -1, (dialog, which) -> {
+                String selected = unitsValues[which];
+                prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
+                dialog.dismiss();
+                refreshData();
+            })
+            .setNegativeButton(R.string.cancel, null)
+            .show();
+    }
+
+    // --- News Logic ---
+
+    private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
+        if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
+        NewsApiService apiService = NewsRetrofitClient.getClient().create(NewsApiService.class);
+        apiService.getNewsFeed().enqueue(new Callback<NewsResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    cachedNewsResponse = response.body();
+                    saveToCache(NEWS_CACHE_KEY, cachedNewsResponse);
+
+                    // Extract top headline for summary (From US or world usually)
+                    List<Article> defaults = cachedNewsResponse.getUs();
+                    if (defaults != null && !defaults.isEmpty()) {
+                        topHeadline = defaults.get(0);
+                    }
+                    refreshDailySummary();
+
+                    if (holder != null) {
+                        holder.progressBar.setVisibility(View.GONE);
+                        displayNewsForCategory(holder, cachedNewsResponse);
+                    }
                 }
-            });
+            }
 
-            holder.container.addView(headlineView);
-            count++;
+            @Override
+            public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
+                if (holder != null) holder.progressBar.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    private void fetchNewsDataForSummary() {
+        // Just triggers the fetch if we don't have it, no UI holder needed
+        fetchNewsData(null);
+    }
+
+    private void displayNewsForCategory(DashboardAdapter.HeadlinesViewHolder holder, NewsResponse response) {
+        if (holder == null) return;
+        List<Article> articles = switch (selectedNewsCategory) {
+            case R.id.chip_business -> response.getBusiness();
+            case R.id.chip_entertainment -> response.getEntertainment();
+            case R.id.chip_health -> response.getHealth();
+            case R.id.chip_science -> response.getScience();
+            case R.id.chip_sports -> response.getSports();
+            case R.id.chip_technology -> response.getTechnology();
+            case R.id.chip_world -> response.getWorld();
+            default -> response.getUs();
+        };
+
+        if (articles != null) {
+            holder.container.removeAllViews();
+            holder.errorText.setVisibility(View.GONE);
+            LayoutInflater inflater = LayoutInflater.from(this);
+            int count = 0;
+            for (Article article : articles) {
+                if (count >= 3) break;
+                View headlineView = inflater.inflate(R.layout.item_headline, holder.container, false);
+                TextView title = headlineView.findViewById(R.id.headline_title);
+                TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
+                title.setText(article.getTitle());
+                sourceTextView.setText(article.getSource());
+                headlineView.setOnClickListener(v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
+                    } catch (Exception e) { Toast.makeText(this, "Cannot open link", Toast.LENGTH_SHORT).show(); }
+                });
+                holder.container.addView(headlineView);
+                count++;
+            }
+        } else {
+            holder.errorText.setVisibility(View.VISIBLE);
         }
-        Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.fade_in);
-        holder.container.startAnimation(fadeIn);
+    }
+
+    // --- Calendar Logic ---
+
+    private void queryCalendarEvents(DashboardAdapter.CalendarViewHolder holder) {
+         loadCalendarDataForSummary();
+    }
+
+    private void loadCalendarDataForSummary() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        executorService.execute(() -> {
+            List<CalendarEvent> events = new ArrayList<>();
+            try {
+                ContentResolver contentResolver = getContentResolver();
+                Uri uri = CalendarContract.Events.CONTENT_URI;
+                long now = System.currentTimeMillis();
+                Calendar cal = Calendar.getInstance();
+                cal.setTimeInMillis(now);
+                cal.add(Calendar.HOUR_OF_DAY, 24);
+                long end = cal.getTimeInMillis();
+
+                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
+                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(end)};
+                String sort = CalendarContract.Events.DTSTART + " ASC";
+
+                try (Cursor cursor = contentResolver.query(uri, new String[]{
+                        CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
+                        CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION}, selection, selectionArgs, sort)) {
+                    if (cursor != null) {
+                         while (cursor.moveToNext() && events.size() < 3) {
+                             events.add(new CalendarEvent(
+                                 cursor.getLong(0), cursor.getString(1), cursor.getLong(2), cursor.getLong(3), cursor.getString(4)
+                             ));
+                         }
+                    }
+                }
+            } catch (Exception e) { Log.e(TAG, "Cal error", e); }
+
+            latestEvents = events;
+            runOnUiThread(() -> {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
+                refreshDailySummary();
+            });
+        });
+    }
+
+    private void populateCalendarCard(DashboardAdapter.CalendarViewHolder holder, List<CalendarEvent> events) {
+        holder.eventsContainer.removeAllViews();
+        if (events.isEmpty()) {
+            holder.noEventsText.setVisibility(View.VISIBLE);
+            holder.eventsContainer.setVisibility(View.GONE);
+        } else {
+            holder.noEventsText.setVisibility(View.GONE);
+            holder.eventsContainer.setVisibility(View.VISIBLE);
+            LayoutInflater inflater = LayoutInflater.from(this);
+            for (CalendarEvent event : events) {
+                View view = inflater.inflate(R.layout.item_calendar_event, holder.eventsContainer, false);
+                TextView title = view.findViewById(R.id.event_title);
+                TextView time = view.findViewById(R.id.event_time);
+                TextView loc = view.findViewById(R.id.event_location);
+                title.setText(event.getTitle());
+                time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
+                if (!TextUtils.isEmpty(event.getLocation())) {
+                    loc.setText(event.getLocation());
+                    loc.setVisibility(View.VISIBLE);
+                } else loc.setVisibility(View.GONE);
+                holder.eventsContainer.addView(view);
+            }
+        }
+    }
+
+    // --- Fun Fact Logic ---
+
+    private void fetchFunFact() {
+        FunFactApiService api = FunFactRetrofitClient.getClient().create(FunFactApiService.class);
+        api.getRandomFact().enqueue(new Callback<FunFactResponse>() {
+            @Override
+            public void onResponse(Call<FunFactResponse> call, Response<FunFactResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    funFactText = response.body().getText();
+                } else {
+                    loadFallbackFunFact();
+                }
+                adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
+            }
+            @Override
+            public void onFailure(Call<FunFactResponse> call, Throwable t) {
+                loadFallbackFunFact();
+                adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
+            }
+        });
+    }
+
+    private void loadFallbackFunFact() {
+        try {
+            String[] facts = getResources().getStringArray(R.array.fun_facts);
+            int idx = Calendar.getInstance().get(Calendar.DAY_OF_YEAR) % facts.length;
+            funFactText = facts[idx];
+        } catch (Exception e) { funFactText = "Did you know? Code is poetry."; }
+    }
+
+    // --- Health Connect Logic ---
+
+    private void checkHealthPermissionsAndFetch() {
+         Set<String> permissions = new HashSet<>();
+         permissions.add(HealthPermission.getReadPermission(StepsRecord.class));
+
+         if (healthConnectClient.getPermissionController() != null) {
+              // Note: Requesting permissions usually requires launching a contract intent.
+              // In Activity:
+              Intent intent = healthConnectClient.getPermissionController().createRequestPermissionResultContract().createIntent(this, permissions);
+              startActivityForResult(intent, HEALTH_PERMISSION_REQUEST_CODE);
+         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == HEALTH_PERMISSION_REQUEST_CODE) {
+             fetchHealthData();
+        } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (onLocationPermissionGranted != null) onLocationPermissionGranted.run();
+        }
+    }
+
+    private void fetchHealthData() {
+        if (healthConnectClient == null) return;
+
+        new com.example.theloop.health.HealthConnectHelper(this).fetchStepsToday(new com.example.theloop.health.HealthConnectHelper.StepsCallback() {
+            @Override
+            public void onStepsFetched(long steps) {
+                stepsToday = steps;
+                adapter.notifyItemChanged(findPositionForSection(SECTION_HEALTH));
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Health error", e);
+                // If permission error, maybe set flag
+                // For now, keep stale or error state
+                adapter.notifyItemChanged(findPositionForSection(SECTION_HEALTH));
+            }
+        });
+    }
+
+    // --- Dynamic Summary Logic ---
+
+    private void refreshDailySummary() {
+        if (latestWeather == null) return; // Wait for weather at least
+
+        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "User");
+        String condition = getString(AppUtils.getWeatherDescription(latestWeather.getCurrent().getWeatherCode()));
+        double temp = latestWeather.getCurrent().getTemperature();
+
+        int eventCount = (latestEvents != null) ? latestEvents.size() : 0;
+        String nextEventTitle = (eventCount > 0) ? latestEvents.get(0).getTitle() : "no upcoming events";
+        String newsTitle = (topHeadline != null) ? topHeadline.getTitle() : "No major news";
+
+        // "Good morning [Name]. It is [Condition] and [Temp]. You have [Count] events, the next one is [Title]. Top news: [Headline]."
+        String timeGreeting = getGreeting().split(",")[0];
+
+        generatedSummary = String.format(Locale.getDefault(),
+            "%s %s. It is %s and %.0f degrees. You have %d events%s. Top news: %s.",
+            timeGreeting, userName, condition, temp, eventCount,
+            (eventCount > 0 ? ", the next one is " + nextEventTitle : ""),
+            newsTitle
+        );
+
+        // Update Adapter (Header)
+        adapter.notifyItemChanged(0);
+
+        // Update Widget Cache
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_SUMMARY_CACHE, generatedSummary).apply();
+        updateWidget();
+    }
+
+    private void updateWidget() {
+        Intent intent = new Intent(this, DayAheadWidget.class);
+        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        int[] ids = AppWidgetManager.getInstance(getApplication()).getAppWidgetIds(new ComponentName(getApplication(), DayAheadWidget.class));
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+        sendBroadcast(intent);
+    }
+
+    // --- Helpers ---
+
+    private int findPositionForSection(String section) {
+        String order = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        String[] sections = order.split(",");
+        for (int i=0; i<sections.length; i++) {
+            if (sections[i].equals(section)) return i + 2; // +2 for Header and Weather
+        }
+        return -1;
+    }
+
+    private void saveToCache(String key, Object data) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(key, gson.toJson(data)).apply();
+    }
+
+    String getGreeting() {
+        Calendar c = Calendar.getInstance();
+        int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
+        if (timeOfDay >= 0 && timeOfDay < 12) return "Good morning";
+        else if (timeOfDay >= 12 && timeOfDay < 17) return "Good afternoon";
+        else return "Good evening";
     }
 }
