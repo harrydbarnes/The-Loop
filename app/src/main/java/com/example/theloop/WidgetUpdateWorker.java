@@ -93,6 +93,6 @@ public class WidgetUpdateWorker extends Worker {
             return Result.retry();
         }
 
-        return Result.success();
+        return Result.failure();
     }
 }
