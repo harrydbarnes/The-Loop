@@ -37,6 +37,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.health.connect.client.HealthConnectClient;
@@ -126,6 +128,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private TextToSpeech textToSpeech;
     private boolean isTtsReady = false;
     private HealthConnectClient healthConnectClient;
+    private ActivityResultLauncher<Intent> healthPermissionLauncher;
 
     // Data State for Summary
     private WeatherResponse latestWeather;
@@ -154,6 +157,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
 
         initHealthConnect();
+
+        healthPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> fetchHealthData());
 
         // Init TTS
         textToSpeech = new TextToSpeech(this, this);
@@ -436,6 +443,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             @Override
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "Weather failed", t);
+                adapter.notifyItemChanged(1); // Rebind to load from cache
             }
         });
     }
@@ -586,9 +594,29 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
             @Override
             public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
-                if (holder != null) holder.progressBar.setVisibility(View.GONE);
+                if (holder != null) {
+                    loadNewsFromCache(holder);
+                }
             }
         });
+    }
+
+    private void loadNewsFromCache(DashboardAdapter.HeadlinesViewHolder holder) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
+        if (cachedJson != null) {
+            try {
+                cachedNewsResponse = gson.fromJson(cachedJson, NewsResponse.class);
+                holder.progressBar.setVisibility(View.GONE);
+                displayNewsForCategory(holder, cachedNewsResponse);
+            } catch (Exception e) {
+                holder.progressBar.setVisibility(View.GONE);
+                holder.errorText.setVisibility(View.VISIBLE);
+            }
+        } else {
+            holder.progressBar.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.VISIBLE);
+        }
     }
 
     private void fetchNewsDataForSummary() {
@@ -664,8 +692,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION}, selection, selectionArgs, sort)) {
                     if (cursor != null) {
                          while (cursor.moveToNext() && events.size() < 3) {
+                             int idCol = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                             int titleCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                             int startCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                             int endCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                             int locationCol = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
                              events.add(new CalendarEvent(
-                                 cursor.getLong(0), cursor.getString(1), cursor.getLong(2), cursor.getLong(3), cursor.getString(4)
+                                 cursor.getLong(idCol), cursor.getString(titleCol), cursor.getLong(startCol), cursor.getLong(endCol), cursor.getString(locationCol)
                              ));
                          }
                     }
@@ -701,6 +734,18 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     loc.setVisibility(View.VISIBLE);
                 } else loc.setVisibility(View.GONE);
                 holder.eventsContainer.addView(view);
+
+                view.setOnClickListener(v -> {
+                    v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
+                    try {
+                        startActivity(intent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        Toast.makeText(v.getContext(), "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to open calendar event", e);
+                    }
+                });
             }
         }
     }
@@ -742,10 +787,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
          permissions.add(HealthPermission.getReadPermission(StepsRecord.class));
 
          if (healthConnectClient.getPermissionController() != null) {
-              // Note: Requesting permissions usually requires launching a contract intent.
-              // In Activity:
               Intent intent = healthConnectClient.getPermissionController().createRequestPermissionResultContract().createIntent(this, permissions);
-              startActivityForResult(intent, HEALTH_PERMISSION_REQUEST_CODE);
+              healthPermissionLauncher.launch(intent);
          }
     }
 
@@ -834,10 +877,25 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String name = prefs.getString(KEY_USER_NAME, "");
+
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
-        if (timeOfDay >= 0 && timeOfDay < 12) return "Good morning";
-        else if (timeOfDay >= 12 && timeOfDay < 17) return "Good afternoon";
-        else return "Good evening";
+
+        String greeting;
+        if (timeOfDay >= 0 && timeOfDay < 12) {
+            greeting = "Good morning";
+        } else if (timeOfDay >= 12 && timeOfDay < 17) {
+            greeting = "Good afternoon";
+        } else {
+            greeting = "Good evening";
+        }
+
+        if (!TextUtils.isEmpty(name)) {
+            return String.format("%s, %s", greeting, name);
+        } else {
+            return greeting;
+        }
     }
 }
