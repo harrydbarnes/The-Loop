@@ -53,7 +53,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             case "calendar" -> TYPE_CALENDAR;
             case "fun_fact" -> TYPE_FUN_FACT;
             case "health" -> TYPE_HEALTH;
-            default -> -1; // Should not happen
+            default -> throw new IllegalArgumentException("Invalid section type: " + section);
         };
     }
 
