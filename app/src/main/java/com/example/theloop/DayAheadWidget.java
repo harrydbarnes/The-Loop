@@ -35,7 +35,7 @@ public class DayAheadWidget extends AppWidgetProvider {
                     views.setTextViewText(R.id.widget_temp, String.format(Locale.getDefault(), "%.0f°", weather.getCurrent().getTemperature()));
                     views.setImageViewResource(R.id.widget_weather_icon, AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
                 }
-            } catch (Exception e) {
+            } catch (com.google.gson.JsonSyntaxException e) {
                 android.util.Log.e("DayAheadWidget", "Error parsing weather JSON from cache", e);
             }
         }
