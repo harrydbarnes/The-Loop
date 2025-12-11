@@ -40,8 +40,8 @@ public class WidgetUpdateWorker extends Worker {
         double lat = DEFAULT_LATITUDE;
         double lon = DEFAULT_LONGITUDE;
 
-        String latStr = prefs.getString("last_latitude", null);
-        String lonStr = prefs.getString("last_longitude", null);
+        String latStr = prefs.getString(MainActivity.KEY_LATITUDE, null);
+        String lonStr = prefs.getString(MainActivity.KEY_LONGITUDE, null);
 
         if (latStr != null && lonStr != null) {
             try {
