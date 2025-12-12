@@ -335,9 +335,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              holder.permissionButton.setVisibility(View.VISIBLE);
              holder.permissionButton.setText("Permission Denied (Tap to Open Settings)");
              holder.permissionButton.setOnClickListener(v -> {
-                 // Intent to open settings? Or just retry?
-                 // Usually we can't re-request immediately if denied twice.
-                 Toast.makeText(this, "Please enable permissions in Health Connect settings", Toast.LENGTH_LONG).show();
+                 // Intent to open Health Connect's permission management screen
+                 Intent intent = new Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS);
+                 try {
+                     startActivity(intent);
+                 } catch (Exception e) {
+                     Toast.makeText(this, "Could not open Health Connect settings. Please open the Health Connect app manually.", Toast.LENGTH_LONG).show();
+                 }
              });
         } else {
              holder.contentLayout.setVisibility(View.GONE);
@@ -432,7 +436,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                         if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
                                     }
                                     cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                                } catch (Exception e) {}
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to get location name from geocoder", e);
+                                }
                             });
                         }
 
@@ -474,6 +480,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             @Override
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "Weather failed", t);
+                // Re-bind the weather item to trigger loading from cache
+                runOnUiThread(() -> adapter.notifyItemChanged(1));
             }
         });
     }
@@ -592,7 +600,20 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
             @Override
             public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
-                if (holder != null) holder.progressBar.setVisibility(View.GONE);
+                if (holder != null) {
+                    holder.progressBar.setVisibility(View.GONE);
+                }
+                Log.e(TAG, "News API call failed.", t);
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
+                if (cachedJson != null) {
+                    cachedNewsResponse = gson.fromJson(cachedJson, NewsResponse.class);
+                    if (holder != null) {
+                         displayNewsForCategory(holder, cachedNewsResponse);
+                    }
+                } else if (holder != null) {
+                    holder.errorText.setVisibility(View.VISIBLE);
+                }
             }
         });
     }
@@ -676,7 +697,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                          }
                     }
                 }
-            } catch (Exception e) { Log.e(TAG, "Cal error", e); }
+            } catch (Exception e) {
+                Log.e(TAG, "Cal error", e);
+            }
 
             latestEvents = events;
             runOnUiThread(() -> {
@@ -803,7 +826,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         String newsTitle = (topHeadline != null) ? topHeadline.getTitle() : "No major news";
 
         // "Good morning [Name]. It is [Condition] and [Temp]. You have [Count] events, the next one is [Title]. Top news: [Headline]."
-        String timeGreeting = getGreeting().split(",")[0];
+        String timeGreeting = getGreeting();
 
         generatedSummary = String.format(Locale.getDefault(),
             "%s %s. It is %s and %.0f degrees. You have %d events%s. Top news: %s.",
