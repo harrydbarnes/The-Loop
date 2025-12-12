@@ -44,6 +44,7 @@ import androidx.health.connect.client.permission.HealthPermission;
 import androidx.health.connect.client.records.StepsRecord;
 import androidx.health.connect.client.request.AggregateRequest;
 import androidx.health.connect.client.time.TimeRangeFilter;
+import androidx.health.connect.client.PermissionController;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -126,6 +127,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private TextToSpeech textToSpeech;
     private boolean isTtsReady = false;
     private HealthConnectClient healthConnectClient;
+    private final androidx.activity.result.ActivityResultLauncher<Set<String>> healthPermissionLauncher =
+            registerForActivityResult(
+                    androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(),
+                    granted -> fetchHealthData());
+    private String cachedLocationName;
 
     // Data State for Summary
     private WeatherResponse latestWeather;
@@ -405,6 +411,31 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                 .putString(KEY_LATITUDE, String.valueOf(location.getLatitude()))
                                 .putString(KEY_LONGITUDE, String.valueOf(location.getLongitude()))
                                 .apply();
+
+                        // Fetch location name
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, addresses -> {
+                                String city = "";
+                                if (addresses != null && !addresses.isEmpty()) {
+                                    city = addresses.get(0).getLocality();
+                                    if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
+                                }
+                                cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                            });
+                        } else {
+                            executorService.execute(() -> {
+                                try {
+                                    List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                                    String city = "";
+                                    if (addresses != null && !addresses.isEmpty()) {
+                                        city = addresses.get(0).getLocality();
+                                        if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
+                                    }
+                                    cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                                } catch (Exception e) {}
+                            });
+                        }
+
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
                     } else {
                         fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
@@ -416,6 +447,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void fetchWeatherData(double latitude, double longitude) {
+        android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm.getActiveNetworkInfo() == null || !cm.getActiveNetworkInfo().isConnected()) {
+            Log.d(TAG, "No network connection, loading from cache.");
+            adapter.notifyItemChanged(1); // Rebind to load from cache
+            return;
+        }
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
 
@@ -500,55 +538,23 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void updateLocationName(DashboardAdapter.WeatherViewHolder holder) {
         if (holder == null || holder.location == null) return;
-
-        // This is a bit tricky with RecyclerView recycling, but for now we re-fetch location name each bind or cache it.
-        // For simplicity, let's just show Unknown or last known.
-        // Real implementation should cache location name.
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (cachedLocationName != null) {
+            holder.location.setText(cachedLocationName);
+        } else {
             holder.location.setText(R.string.unknown_location);
-            return;
         }
-
-        fusedLocationProviderClient.getLastLocation().addOnSuccessListener(location -> {
-             if (location == null) {
-                 holder.location.setText(R.string.unknown_location);
-                 return;
-             }
-             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, addresses -> {
-                    String city = "";
-                    if (addresses != null && !addresses.isEmpty()) {
-                         city = addresses.get(0).getLocality();
-                         if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
-                    }
-                    final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                    runOnUiThread(() -> holder.location.setText(finalCity));
-                });
-            } else {
-                executorService.execute(() -> {
-                    try {
-                        List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                        String city = "";
-                        if (addresses != null && !addresses.isEmpty()) {
-                            city = addresses.get(0).getLocality();
-                             if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
-                        }
-                        final String finalCity = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                        runOnUiThread(() -> holder.location.setText(finalCity));
-                    } catch (Exception e) {}
-                });
-            }
-        });
     }
 
     private void showTemperatureUnitDialog() {
+         String[] unitsDisplay = getResources().getStringArray(R.array.temp_units_display);
          String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
          SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+         String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
+         int checkedItem = Math.max(0, Arrays.asList(unitsValues).indexOf(currentUnit));
 
          new AlertDialog.Builder(this)
             .setTitle(R.string.select_temperature_unit)
-            .setSingleChoiceItems(R.array.temp_units_display, -1, (dialog, which) -> {
+            .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
                 String selected = unitsValues[which];
                 prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
                 dialog.dismiss();
@@ -740,22 +746,26 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void checkHealthPermissionsAndFetch() {
          Set<String> permissions = new HashSet<>();
          permissions.add(HealthPermission.getReadPermission(StepsRecord.class));
-
-         if (healthConnectClient.getPermissionController() != null) {
-              // Note: Requesting permissions usually requires launching a contract intent.
-              // In Activity:
-              Intent intent = healthConnectClient.getPermissionController().createRequestPermissionResultContract().createIntent(this, permissions);
-              startActivityForResult(intent, HEALTH_PERMISSION_REQUEST_CODE);
-         }
+         healthPermissionLauncher.launch(permissions);
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == HEALTH_PERMISSION_REQUEST_CODE) {
-             fetchHealthData();
-        } else if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (onLocationPermissionGranted != null) onLocationPermissionGranted.run();
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (onLocationPermissionGranted != null) {
+                onLocationPermissionGranted.run();
+            }
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                fetchLocationAndThenWeatherData();
+            } else {
+                Toast.makeText(this, "Location permission denied. Using default location.", Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
+            int calendarPosition = findPositionForSection(SECTION_CALENDAR);
+            if (calendarPosition != -1) {
+                adapter.notifyItemChanged(calendarPosition);
+            }
         }
     }
 
