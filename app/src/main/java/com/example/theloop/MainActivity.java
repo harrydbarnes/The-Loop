@@ -130,7 +130,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private final androidx.activity.result.ActivityResultLauncher<Set<String>> healthPermissionLauncher =
             registerForActivityResult(
                     androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(),
-                    granted -> fetchHealthData());
+                    granted -> {
+                        if (granted.contains(HealthPermission.getReadPermission(StepsRecord.class))) {
+                            fetchHealthData();
+                        } else {
+                            // User denied permission, update UI to reflect this
+                            healthPermissionDenied = true;
+                            if (adapter != null) {
+                                adapter.notifyItemChanged(findPositionForSection(SECTION_HEALTH));
+                            }
+                        }
+                    });
     private String cachedLocationName;
 
     // Data State for Summary
