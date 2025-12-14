@@ -425,6 +425,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                     if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
                                 }
                                 cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                                runOnUiThread(() -> {
+                                    if (adapter != null) adapter.notifyItemChanged(1);
+                                });
                             });
                         } else {
                             executorService.execute(() -> {
@@ -436,6 +439,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                         if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
                                     }
                                     cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+                                    runOnUiThread(() -> {
+                                        if (adapter != null) adapter.notifyItemChanged(1);
+                                    });
                                 } catch (Exception e) {
                                     Log.e(TAG, "Failed to get location name from geocoder", e);
                                 }
@@ -454,7 +460,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void fetchWeatherData(double latitude, double longitude) {
         android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm.getActiveNetworkInfo() == null || !cm.getActiveNetworkInfo().isConnected()) {
+        android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+        boolean isConnected = caps != null && (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET));
+
+        if (!isConnected) {
             Log.d(TAG, "No network connection, loading from cache.");
             adapter.notifyItemChanged(1); // Rebind to load from cache
             return;
@@ -690,11 +699,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
                         CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION}, selection, selectionArgs, sort)) {
                     if (cursor != null) {
-                         while (cursor.moveToNext() && events.size() < 3) {
-                             events.add(new CalendarEvent(
-                                 cursor.getLong(0), cursor.getString(1), cursor.getLong(2), cursor.getLong(3), cursor.getString(4)
-                             ));
-                         }
+                        int idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                        int titleIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                        int startIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                        int endIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                        int locIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
+
+                        while (cursor.moveToNext() && events.size() < 3) {
+                            events.add(new CalendarEvent(
+                                cursor.getLong(idIdx), cursor.getString(titleIdx), cursor.getLong(startIdx), cursor.getLong(endIdx), cursor.getString(locIdx)
+                            ));
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -729,6 +744,16 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     loc.setText(event.getLocation());
                     loc.setVisibility(View.VISIBLE);
                 } else loc.setVisibility(View.GONE);
+
+                view.setOnClickListener(v -> {
+                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
+                    try {
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Cannot open calendar event", e);
+                    }
+                });
                 holder.eventsContainer.addView(view);
             }
         }
@@ -738,7 +763,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void fetchFunFact() {
         FunFactApiService api = FunFactRetrofitClient.getClient().create(FunFactApiService.class);
-        api.getRandomFact().enqueue(new Callback<FunFactResponse>() {
+        api.getRandomFact("en").enqueue(new Callback<FunFactResponse>() {
             @Override
             public void onResponse(Call<FunFactResponse> call, Response<FunFactResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -827,6 +852,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         // "Good morning [Name]. It is [Condition] and [Temp]. You have [Count] events, the next one is [Title]. Top news: [Headline]."
         String timeGreeting = getGreeting();
+        // Remove username from greeting if it's already there to avoid duplication in summary, or just use greeting as is.
+        // Actually the summary format string expects name separately: "%s %s..."
+        // But getGreeting now returns "Good morning, Name".
+        // Let's adjust summary generation.
+        if (timeGreeting.contains(",")) {
+            timeGreeting = timeGreeting.split(",")[0];
+        }
 
         generatedSummary = String.format(Locale.getDefault(),
             "%s %s. It is %s and %.0f degrees. You have %d events%s. Top news: %s.",
@@ -867,10 +899,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
+        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
-        if (timeOfDay >= 0 && timeOfDay < 12) return "Good morning";
-        else if (timeOfDay >= 12 && timeOfDay < 17) return "Good afternoon";
-        else return "Good evening";
+        String greeting;
+        if (timeOfDay >= 0 && timeOfDay < 12) greeting = "Good morning";
+        else if (timeOfDay >= 12 && timeOfDay < 17) greeting = "Good afternoon";
+        else greeting = "Good evening";
+
+        if (!TextUtils.isEmpty(userName)) {
+            return greeting + ", " + userName;
+        }
+        return greeting;
     }
 }
