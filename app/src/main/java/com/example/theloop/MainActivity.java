@@ -62,6 +62,7 @@ import com.example.theloop.network.NewsRetrofitClient;
 import com.example.theloop.network.RetrofitClient;
 import com.example.theloop.network.WeatherApiService;
 import com.example.theloop.utils.AppUtils;
+import com.example.theloop.health.HealthConnectHelper;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
@@ -127,6 +128,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private TextToSpeech textToSpeech;
     private boolean isTtsReady = false;
     private HealthConnectClient healthConnectClient;
+    private HealthConnectHelper healthConnectHelper;
     private final androidx.activity.result.ActivityResultLauncher<Set<String>> healthPermissionLauncher =
             registerForActivityResult(
                     androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(),
@@ -146,6 +148,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     // Data State for Summary
     private WeatherResponse latestWeather;
     private List<CalendarEvent> latestEvents;
+    private boolean calendarQueryError = false;
     private Article topHeadline;
     private String generatedSummary;
 
@@ -193,6 +196,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void initHealthConnect() {
          if (HealthConnectClient.getSdkStatus(this) == HealthConnectClient.SDK_AVAILABLE) {
              healthConnectClient = HealthConnectClient.getOrCreate(this);
+             healthConnectHelper = new HealthConnectHelper(this);
          }
     }
 
@@ -303,12 +307,18 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             holder.permissionDeniedText.setVisibility(View.VISIBLE);
             holder.eventsContainer.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.GONE);
+            holder.noEventsText.setVisibility(View.GONE);
             holder.permissionDeniedText.setOnClickListener(v ->
                  ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE)
             );
         } else {
             holder.permissionDeniedText.setVisibility(View.GONE);
-            if (latestEvents != null) {
+            if (calendarQueryError) {
+                holder.errorText.setVisibility(View.VISIBLE);
+                holder.eventsContainer.setVisibility(View.GONE);
+                holder.noEventsText.setVisibility(View.GONE);
+            } else if (latestEvents != null) {
                  populateCalendarCard(holder, latestEvents);
             } else {
                 queryCalendarEvents(holder); // Fetch if not ready
@@ -691,6 +701,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             return;
         }
         executorService.execute(() -> {
+            calendarQueryError = false;
             List<CalendarEvent> events = new ArrayList<>();
             try {
                 ContentResolver contentResolver = getContentResolver();
@@ -724,6 +735,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Cal error", e);
+                calendarQueryError = true;
             }
 
             latestEvents = events;
@@ -736,6 +748,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void populateCalendarCard(DashboardAdapter.CalendarViewHolder holder, List<CalendarEvent> events) {
         holder.eventsContainer.removeAllViews();
+        holder.errorText.setVisibility(View.GONE);
         if (events.isEmpty()) {
             holder.noEventsText.setVisibility(View.VISIBLE);
             holder.eventsContainer.setVisibility(View.GONE);
@@ -828,9 +841,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void fetchHealthData() {
-        if (healthConnectClient == null) return;
+        if (healthConnectClient == null || healthConnectHelper == null) return;
 
-        new com.example.theloop.health.HealthConnectHelper(this).fetchStepsToday(new com.example.theloop.health.HealthConnectHelper.StepsCallback() {
+        healthConnectHelper.fetchStepsToday(new HealthConnectHelper.StepsCallback() {
             @Override
             public void onStepsFetched(long steps) {
                 stepsToday = steps;

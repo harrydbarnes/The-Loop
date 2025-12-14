@@ -146,12 +146,14 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static class CalendarViewHolder extends RecyclerView.ViewHolder {
         final TextView permissionDeniedText;
         final TextView noEventsText;
+        final TextView errorText;
         final LinearLayout eventsContainer;
 
         CalendarViewHolder(View v) {
             super(v);
             permissionDeniedText = v.findViewById(R.id.calendar_permission_denied_text);
             noEventsText = v.findViewById(R.id.calendar_no_events_text);
+            errorText = v.findViewById(R.id.calendar_error_text);
             eventsContainer = v.findViewById(R.id.calendar_events_container);
         }
     }
