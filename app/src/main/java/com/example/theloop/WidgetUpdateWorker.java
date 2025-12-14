@@ -37,19 +37,23 @@ public class WidgetUpdateWorker extends Worker {
         Log.d(TAG, "Fetching weather for widget update...");
 
         android.content.SharedPreferences prefs = getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        double lat = DEFAULT_LATITUDE;
-        double lon = DEFAULT_LONGITUDE;
+        double lat;
+        double lon;
 
         String latStr = prefs.getString(MainActivity.KEY_LATITUDE, null);
         String lonStr = prefs.getString(MainActivity.KEY_LONGITUDE, null);
 
-        if (latStr != null && lonStr != null) {
-            try {
-                lat = Double.parseDouble(latStr);
-                lon = Double.parseDouble(lonStr);
-            } catch (NumberFormatException e) {
-                Log.w(TAG, "Could not parse lat/lon from SharedPreferences", e);
-            }
+        if (latStr == null || lonStr == null) {
+            Log.w(TAG, "No location available for widget update. Skipping weather fetch.");
+            return Result.success();
+        }
+
+        try {
+            lat = Double.parseDouble(latStr);
+            lon = Double.parseDouble(lonStr);
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "Could not parse lat/lon from SharedPreferences", e);
+            return Result.failure();
         }
 
         // Fetch Weather

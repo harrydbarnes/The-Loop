@@ -116,6 +116,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
 
+    private static final String[] CALENDAR_PROJECTION = new String[]{
+            CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
+            CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
+    };
+
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
     private Geocoder geocoder;
@@ -511,6 +516,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     adapter.notifyItemChanged(1); // Update Weather card
                     refreshDailySummary();
                     updateWidget();
+                } else {
+                    Log.e(TAG, "Weather API response not successful: " + response.code());
+                    onFailure(call, new java.io.IOException("API response not successful: " + response.code()));
                 }
             }
             @Override
@@ -631,6 +639,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         holder.progressBar.setVisibility(View.GONE);
                         displayNewsForCategory(holder, cachedNewsResponse);
                     }
+                } else {
+                    Log.e(TAG, "News API response not successful: " + response.code());
+                    onFailure(call, new java.io.IOException("API response not successful: " + response.code()));
                 }
             }
 
@@ -723,9 +734,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(end)};
                 String sort = CalendarContract.Events.DTSTART + " ASC";
 
-                try (Cursor cursor = contentResolver.query(uri, new String[]{
-                        CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
-                        CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION}, selection, selectionArgs, sort)) {
+                try (Cursor cursor = contentResolver.query(uri, CALENDAR_PROJECTION, selection, selectionArgs, sort)) {
                     if (cursor != null) {
                         totalEventCount = cursor.getCount();
                         int idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
