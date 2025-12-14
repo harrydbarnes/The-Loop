@@ -148,6 +148,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     // Data State for Summary
     private WeatherResponse latestWeather;
     private List<CalendarEvent> latestEvents;
+    private int totalEventCount = 0;
     private boolean calendarQueryError = false;
     private Article topHeadline;
     private String generatedSummary;
@@ -230,6 +231,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
+        }
+        if (healthConnectHelper != null) {
+            healthConnectHelper.cancel();
         }
     }
 
@@ -474,16 +478,19 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     }
                 })
                 .addOnFailureListener(this, e -> {
+                    Log.e(TAG, "Failed to get location.", e);
                     fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
                 });
     }
 
-    private void fetchWeatherData(double latitude, double longitude) {
-        android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+    private boolean isNetworkAvailable() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
-        boolean isConnected = caps != null && (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET));
+        return caps != null && (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET));
+    }
 
-        if (!isConnected) {
+    private void fetchWeatherData(double latitude, double longitude) {
+        if (!isNetworkAvailable()) {
             Log.d(TAG, "No network connection, loading from cache.");
             adapter.notifyItemChanged(1); // Rebind to load from cache
             return;
@@ -720,6 +727,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
                         CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION}, selection, selectionArgs, sort)) {
                     if (cursor != null) {
+                        totalEventCount = cursor.getCount();
                         int idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
                         int titleIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
                         int startIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
@@ -731,6 +739,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                 cursor.getLong(idIdx), cursor.getString(titleIdx), cursor.getLong(startIdx), cursor.getLong(endIdx), cursor.getString(locIdx)
                             ));
                         }
+                    } else {
+                        totalEventCount = 0;
                     }
                 }
             } catch (Exception e) {
@@ -869,25 +879,23 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         String condition = getString(AppUtils.getWeatherDescription(latestWeather.getCurrent().getWeatherCode()));
         double temp = latestWeather.getCurrent().getTemperature();
 
-        int eventCount = (latestEvents != null) ? latestEvents.size() : 0;
-        String nextEventTitle = (eventCount > 0) ? latestEvents.get(0).getTitle() : "no upcoming events";
+        String nextEventTitle = (latestEvents != null && !latestEvents.isEmpty()) ? latestEvents.get(0).getTitle() : "";
         String newsTitle = (topHeadline != null) ? topHeadline.getTitle() : "No major news";
 
-        // "Good morning [Name]. It is [Condition] and [Temp]. You have [Count] events, the next one is [Title]. Top news: [Headline]."
         String timeGreeting = getGreeting();
-        // Remove username from greeting if it's already there to avoid duplication in summary, or just use greeting as is.
-        // Actually the summary format string expects name separately: "%s %s..."
-        // But getGreeting now returns "Good morning, Name".
-        // Let's adjust summary generation.
         if (timeGreeting.contains(",")) {
             timeGreeting = timeGreeting.split(",")[0];
         }
 
-        generatedSummary = String.format(Locale.getDefault(),
-            "%s %s. It is %s and %.0f degrees. You have %d events%s. Top news: %s.",
-            timeGreeting, userName, condition, temp, eventCount,
-            (eventCount > 0 ? ", the next one is " + nextEventTitle : ""),
-            newsTitle
+        String eventsSummary;
+        if (totalEventCount > 0) {
+            eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, totalEventCount, totalEventCount, nextEventTitle);
+        } else {
+            eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, 0);
+        }
+
+        generatedSummary = String.format(Locale.getDefault(), getString(R.string.daily_summary_format),
+            timeGreeting, userName, condition, temp, eventsSummary, newsTitle
         );
 
         // Update Adapter (Header)
