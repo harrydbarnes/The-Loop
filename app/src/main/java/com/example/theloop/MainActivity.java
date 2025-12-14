@@ -452,7 +452,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                     runOnUiThread(() -> {
                                         if (adapter != null) adapter.notifyItemChanged(1);
                                     });
-                                } catch (Exception e) {
+                                } catch (java.io.IOException e) {
                                     Log.e(TAG, "Failed to get location name from geocoder", e);
                                 }
                             });
