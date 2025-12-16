@@ -11,6 +11,7 @@ import androidx.work.WorkerParameters;
 import com.example.theloop.models.WeatherResponse;
 import com.example.theloop.network.RetrofitClient;
 import com.example.theloop.network.WeatherApiService;
+import com.example.theloop.utils.AppConstants;
 import com.google.gson.Gson;
 
 import java.io.IOException;
@@ -21,11 +22,6 @@ import retrofit2.Response;
 public class WidgetUpdateWorker extends Worker {
 
     private static final String TAG = "WidgetUpdateWorker";
-    private static final String PREFS_NAME = "TheLoopPrefs";
-    private static final String KEY_TEMP_UNIT = "temp_unit";
-    private static final String WEATHER_CACHE_KEY = "weather_cache";
-    private static final double DEFAULT_LATITUDE = 51.5480;
-    private static final double DEFAULT_LONGITUDE = -0.1030;
 
     public WidgetUpdateWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -36,12 +32,12 @@ public class WidgetUpdateWorker extends Worker {
     public Result doWork() {
         Log.d(TAG, "Fetching weather for widget update...");
 
-        android.content.SharedPreferences prefs = getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        android.content.SharedPreferences prefs = getApplicationContext().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE);
         double lat;
         double lon;
 
-        String latStr = prefs.getString(MainActivity.KEY_LATITUDE, null);
-        String lonStr = prefs.getString(MainActivity.KEY_LONGITUDE, null);
+        String latStr = prefs.getString(AppConstants.KEY_LATITUDE, null);
+        String lonStr = prefs.getString(AppConstants.KEY_LONGITUDE, null);
 
         if (latStr == null || lonStr == null) {
             Log.w(TAG, "No location available for widget update. Skipping weather fetch.");
@@ -58,7 +54,7 @@ public class WidgetUpdateWorker extends Worker {
 
         // Fetch Weather
         try {
-            String unit = prefs.getString(KEY_TEMP_UNIT, "celsius");
+            String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, "celsius");
 
             WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
             Call<WeatherResponse> call = apiService.getWeather(lat, lon,
@@ -68,8 +64,8 @@ public class WidgetUpdateWorker extends Worker {
             if (response.isSuccessful() && response.body() != null) {
                 // Save to cache
                 String json = new Gson().toJson(response.body());
-                getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        .edit().putString(WEATHER_CACHE_KEY, json).apply();
+                getApplicationContext().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putString(AppConstants.WEATHER_CACHE_KEY, json).apply();
 
                 // Trigger widget update explicitly
                 android.content.Intent intent = new android.content.Intent(getApplicationContext(), DayAheadWidget.class);

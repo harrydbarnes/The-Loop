@@ -61,6 +61,7 @@ import com.example.theloop.network.NewsApiService;
 import com.example.theloop.network.NewsRetrofitClient;
 import com.example.theloop.network.RetrofitClient;
 import com.example.theloop.network.WeatherApiService;
+import com.example.theloop.utils.AppConstants;
 import com.example.theloop.utils.AppUtils;
 import com.example.theloop.health.HealthConnectHelper;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -93,16 +94,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
     private static final int HEALTH_PERMISSION_REQUEST_CODE = 102;
 
-    static final String PREFS_NAME = "TheLoopPrefs";
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
-    static final String KEY_TEMP_UNIT = "temp_unit";
-    private static final String WEATHER_CACHE_KEY = "weather_cache";
     private static final String NEWS_CACHE_KEY = "news_cache";
     private static final String KEY_SECTION_ORDER = "section_order";
     private static final String KEY_SUMMARY_CACHE = "summary_cache";
-    static final String KEY_LATITUDE = "last_latitude";
-    static final String KEY_LONGITUDE = "last_longitude";
 
     public static final String SECTION_HEADLINES = "headlines";
     public static final String SECTION_CALENDAR = "calendar";
@@ -113,9 +109,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final int POSITION_WEATHER = 1;
 
     private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
-
-    private static final double DEFAULT_LATITUDE = 51.5480;
-    private static final double DEFAULT_LONGITUDE = -0.1030;
 
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
     private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
@@ -154,6 +147,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     });
     private String cachedLocationName;
 
+    // Call objects to cancel on destroy
+    private Call<WeatherResponse> weatherCall;
+    private Call<NewsResponse> newsCall;
+    private Call<FunFactResponse> funFactCall;
+
     // Data State for Summary
     private WeatherResponse latestWeather;
     private List<CalendarEvent> latestEvents;
@@ -179,7 +177,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
         }
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
 
         initHealthConnect();
@@ -214,7 +212,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         recyclerView = findViewById(R.id.dashboard_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
 
@@ -243,6 +241,15 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
         if (healthConnectHelper != null) {
             healthConnectHelper.cancel();
+        }
+        if (weatherCall != null) {
+            weatherCall.cancel();
+        }
+        if (newsCall != null) {
+            newsCall.cancel();
+        }
+        if (funFactCall != null) {
+            funFactCall.cancel();
         }
     }
 
@@ -394,7 +401,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void onLocationPermissionGrantedForSetup() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
+        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
         setupRecyclerView();
         refreshData();
     }
@@ -410,7 +417,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 .setPositiveButton("Save", (dialog, which) -> {
                     String name = nameEditText.getText().toString();
                     if (!TextUtils.isEmpty(name)) {
-                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                                 .edit()
                                 .putString(KEY_USER_NAME, name)
                                 .apply();
@@ -437,16 +444,16 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void fetchLocationAndThenWeatherData() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+            fetchWeatherData(AppConstants.DEFAULT_LATITUDE, AppConstants.DEFAULT_LONGITUDE);
             return;
         }
         fusedLocationProviderClient.getLastLocation()
                 .addOnSuccessListener(this, location -> {
                     if (location != null) {
                         // Save location for Widget
-                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                                .putString(KEY_LATITUDE, String.valueOf(location.getLatitude()))
-                                .putString(KEY_LONGITUDE, String.valueOf(location.getLongitude()))
+                        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit()
+                                .putString(AppConstants.KEY_LATITUDE, String.valueOf(location.getLatitude()))
+                                .putString(AppConstants.KEY_LONGITUDE, String.valueOf(location.getLongitude()))
                                 .apply();
 
                         // Fetch location name
@@ -467,12 +474,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
                     } else {
-                        fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                        fetchWeatherData(AppConstants.DEFAULT_LATITUDE, AppConstants.DEFAULT_LONGITUDE);
                     }
                 })
                 .addOnFailureListener(this, e -> {
                     Log.e(TAG, "Failed to get location.", e);
-                    fetchWeatherData(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+                    fetchWeatherData(AppConstants.DEFAULT_LATITUDE, AppConstants.DEFAULT_LONGITUDE);
                 });
     }
 
@@ -501,18 +508,18 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
 
         WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
-        Call<WeatherResponse> call = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto");
+        weatherCall = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto");
 
-        call.enqueue(new Callback<WeatherResponse>() {
+        weatherCall.enqueue(new Callback<WeatherResponse>() {
             @Override
             public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     latestWeather = response.body();
-                    saveToCache(WEATHER_CACHE_KEY, latestWeather);
+                    saveToCache(AppConstants.WEATHER_CACHE_KEY, latestWeather);
                     adapter.notifyItemChanged(POSITION_WEATHER); // Update Weather card
                     refreshDailySummary();
                     updateWidget();
@@ -525,14 +532,16 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "Weather failed", t);
                 // Re-bind the weather item to trigger loading from cache
-                runOnUiThread(() -> adapter.notifyItemChanged(POSITION_WEATHER));
+                if (adapter != null) {
+                    adapter.notifyItemChanged(POSITION_WEATHER);
+                }
             }
         });
     }
 
     private void loadWeatherFromCache(DashboardAdapter.WeatherViewHolder holder) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String cachedJson = prefs.getString(WEATHER_CACHE_KEY, null);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        String cachedJson = prefs.getString(AppConstants.WEATHER_CACHE_KEY, null);
         holder.progressBar.setVisibility(View.GONE);
         if (cachedJson != null) {
             latestWeather = gson.fromJson(cachedJson, WeatherResponse.class);
@@ -545,8 +554,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
         holder.temp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
@@ -600,15 +609,15 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void showTemperatureUnitDialog() {
          String[] unitsDisplay = getResources().getStringArray(R.array.temp_units_display);
          String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
-         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-         String currentUnit = prefs.getString(KEY_TEMP_UNIT, unitsValues[0]);
+         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+         String currentUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, unitsValues[0]);
          int checkedItem = Math.max(0, Arrays.asList(unitsValues).indexOf(currentUnit));
 
          new AlertDialog.Builder(this)
             .setTitle(R.string.select_temperature_unit)
             .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
                 String selected = unitsValues[which];
-                prefs.edit().putString(KEY_TEMP_UNIT, selected).apply();
+                prefs.edit().putString(AppConstants.KEY_TEMP_UNIT, selected).apply();
                 dialog.dismiss();
                 refreshData();
             })
@@ -621,7 +630,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
         if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
         NewsApiService apiService = NewsRetrofitClient.getClient().create(NewsApiService.class);
-        apiService.getNewsFeed().enqueue(new Callback<NewsResponse>() {
+        newsCall = apiService.getNewsFeed();
+        newsCall.enqueue(new Callback<NewsResponse>() {
             @Override
             public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -651,7 +661,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     holder.progressBar.setVisibility(View.GONE);
                 }
                 Log.e(TAG, "News API call failed.", t);
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
                 String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
                 if (cachedJson != null) {
                     cachedNewsResponse = gson.fromJson(cachedJson, NewsResponse.class);
@@ -698,7 +708,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 headlineView.setOnClickListener(v -> {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
-                    } catch (Exception e) { Toast.makeText(this, "Cannot open link", Toast.LENGTH_SHORT).show(); }
+                    } catch (android.content.ActivityNotFoundException e) {
+                        Toast.makeText(this, "No browser found to open link.", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to open article link", e);
+                    }
                 });
                 holder.container.addView(headlineView);
                 count++;
@@ -806,7 +819,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void fetchFunFact() {
         FunFactApiService api = FunFactRetrofitClient.getClient().create(FunFactApiService.class);
-        api.getRandomFact("en").enqueue(new Callback<FunFactResponse>() {
+        funFactCall = api.getRandomFact("en");
+        funFactCall.enqueue(new Callback<FunFactResponse>() {
             @Override
             public void onResponse(Call<FunFactResponse> call, Response<FunFactResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -887,7 +901,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void refreshDailySummary() {
         if (latestWeather == null) return; // Wait for weather at least
 
-        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "User");
+        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "User");
         String condition = getString(AppUtils.getWeatherDescription(latestWeather.getCurrent().getWeatherCode()));
         double temp = latestWeather.getCurrent().getTemperature();
 
@@ -913,7 +927,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         adapter.notifyItemChanged(POSITION_HEADER);
 
         // Update Widget Cache
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_SUMMARY_CACHE, generatedSummary).apply();
+        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_SUMMARY_CACHE, generatedSummary).apply();
         updateWidget();
     }
 
@@ -928,7 +942,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     // --- Helpers ---
 
     private int findPositionForSection(String section) {
-        String order = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        String order = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
         for (int i=0; i<sections.length; i++) {
             if (sections[i].equals(section)) return i + 2; // +2 for Header and Weather
@@ -937,7 +951,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void saveToCache(String key, Object data) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(key, gson.toJson(data)).apply();
+        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(key, gson.toJson(data)).apply();
     }
 
     private String getTimeBasedGreeting() {
@@ -949,7 +963,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
-        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
+        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
         String greeting = getTimeBasedGreeting();
 
         if (!TextUtils.isEmpty(userName)) {
