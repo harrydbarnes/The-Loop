@@ -446,17 +446,19 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                 .apply();
 
                         // Fetch location name
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, this::processGeocoderAddresses);
-                        } else {
-                            executorService.execute(() -> {
-                                try {
-                                    List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                                    processGeocoderAddresses(addresses);
-                                } catch (java.io.IOException e) {
-                                    Log.e(TAG, "Failed to get location name from geocoder", e);
-                                }
-                            });
+                        if (geocoder != null) {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, this::processGeocoderAddresses);
+                            } else {
+                                executorService.execute(() -> {
+                                    try {
+                                        List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                                        processGeocoderAddresses(addresses);
+                                    } catch (java.io.IOException e) {
+                                        Log.e(TAG, "Failed to get location name from geocoder", e);
+                                    }
+                                });
+                            }
                         }
 
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
@@ -898,7 +900,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
 
         String eventsSummary;
-        if (totalEventCount > 0) {
+        if (calendarQueryError) {
+            eventsSummary = getString(R.string.calendar_error);
+        } else if (totalEventCount > 0) {
             eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, totalEventCount, totalEventCount, nextEventTitle);
         } else {
             eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, 0);
