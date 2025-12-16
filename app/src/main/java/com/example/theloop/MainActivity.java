@@ -447,30 +447,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
                         // Fetch location name
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, addresses -> {
-                                String city = "";
-                                if (addresses != null && !addresses.isEmpty()) {
-                                    city = addresses.get(0).getLocality();
-                                    if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
-                                }
-                                cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                                runOnUiThread(() -> {
-                                    if (adapter != null) adapter.notifyItemChanged(1);
-                                });
-                            });
+                            geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, this::processGeocoderAddresses);
                         } else {
                             executorService.execute(() -> {
                                 try {
                                     List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                                    String city = "";
-                                    if (addresses != null && !addresses.isEmpty()) {
-                                        city = addresses.get(0).getLocality();
-                                        if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
-                                    }
-                                    cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-                                    runOnUiThread(() -> {
-                                        if (adapter != null) adapter.notifyItemChanged(1);
-                                    });
+                                    processGeocoderAddresses(addresses);
                                 } catch (java.io.IOException e) {
                                     Log.e(TAG, "Failed to get location name from geocoder", e);
                                 }
@@ -488,10 +470,22 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 });
     }
 
+    private void processGeocoderAddresses(List<Address> addresses) {
+        String city = "";
+        if (addresses != null && !addresses.isEmpty()) {
+            city = addresses.get(0).getLocality();
+            if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
+        }
+        cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
+        runOnUiThread(() -> {
+            if (adapter != null) adapter.notifyItemChanged(1);
+        });
+    }
+
     private boolean isNetworkAvailable() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
-        return caps != null && (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET));
+        return caps != null && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
     }
 
     private void fetchWeatherData(double latitude, double longitude) {
@@ -843,13 +837,20 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (!granted) {
+                Toast.makeText(this, "Location permission denied. Using default location.", Toast.LENGTH_SHORT).show();
+            }
+
+            // If this was part of the setup sequence, complete it.
             if (onLocationPermissionGranted != null) {
                 onLocationPermissionGranted.run();
+                onLocationPermissionGranted = null; // Consume the one-time runnable
             }
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+            // If permission was just granted, trigger a refresh to use the real location.
+            if (granted) {
                 fetchLocationAndThenWeatherData();
-            } else {
-                Toast.makeText(this, "Location permission denied. Using default location.", Toast.LENGTH_SHORT).show();
             }
         } else if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             int calendarPosition = findPositionForSection(SECTION_CALENDAR);
