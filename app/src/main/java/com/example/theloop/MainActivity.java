@@ -330,7 +330,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             } else if (latestEvents != null) {
                  populateCalendarCard(holder, latestEvents);
             } else {
-                queryCalendarEvents(holder); // Fetch if not ready
+                loadCalendarDataForSummary(); // Fetch if not ready
             }
         }
     }
