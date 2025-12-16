@@ -49,10 +49,10 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         // Remaining positions map to sectionOrder
         String section = sectionOrder[position - 2];
         return switch (section) {
-            case "headlines" -> TYPE_HEADLINES;
-            case "calendar" -> TYPE_CALENDAR;
-            case "fun_fact" -> TYPE_FUN_FACT;
-            case "health" -> TYPE_HEALTH;
+            case MainActivity.SECTION_HEADLINES -> TYPE_HEADLINES;
+            case MainActivity.SECTION_CALENDAR -> TYPE_CALENDAR;
+            case MainActivity.SECTION_FUN_FACT -> TYPE_FUN_FACT;
+            case MainActivity.SECTION_HEALTH -> TYPE_HEALTH;
             default -> -1; // Should not happen
         };
     }

@@ -104,10 +104,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     static final String KEY_LATITUDE = "last_latitude";
     static final String KEY_LONGITUDE = "last_longitude";
 
-    private static final String SECTION_HEADLINES = "headlines";
-    private static final String SECTION_CALENDAR = "calendar";
-    private static final String SECTION_FUN_FACT = "fun_fact";
-    private static final String SECTION_HEALTH = "health";
+    public static final String SECTION_HEADLINES = "headlines";
+    public static final String SECTION_CALENDAR = "calendar";
+    public static final String SECTION_FUN_FACT = "fun_fact";
+    public static final String SECTION_HEALTH = "health";
     private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
 
     private static final double DEFAULT_LATITUDE = 51.5480;
@@ -790,6 +790,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         startActivity(intent);
                     } catch (Exception e) {
                         Log.e(TAG, "Cannot open calendar event", e);
+                        Toast.makeText(MainActivity.this, "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
                     }
                 });
                 holder.eventsContainer.addView(view);

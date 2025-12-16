@@ -71,17 +71,6 @@ public class WidgetUpdateWorker extends Worker {
                 getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         .edit().putString(WEATHER_CACHE_KEY, json).apply();
 
-                // Trigger widget update
-                // The widget reads from SharedPreferences, so we just need to notify it.
-                // But we can't easily send broadcast from here without Context? We have context.
-                // DayAheadWidget.updateAppWidget...
-                // Actually sending the intent is the standard way.
-
-                // We'll trust DayAheadWidget to read the cache when it updates.
-                // But we should force an update.
-                // However, standard widgets update on interval.
-                // We can request update.
-
                 // Trigger widget update explicitly
                 android.content.Intent intent = new android.content.Intent(getApplicationContext(), DayAheadWidget.class);
                 intent.setAction(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE);
