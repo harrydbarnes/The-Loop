@@ -108,6 +108,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     public static final String SECTION_CALENDAR = "calendar";
     public static final String SECTION_FUN_FACT = "fun_fact";
     public static final String SECTION_HEALTH = "health";
+
+    private static final int POSITION_HEADER = 0;
+    private static final int POSITION_WEATHER = 1;
+
     private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
 
     private static final double DEFAULT_LATITUDE = 51.5480;
@@ -480,7 +484,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
         cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
         runOnUiThread(() -> {
-            if (adapter != null) adapter.notifyItemChanged(1);
+            if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
         });
     }
 
@@ -493,7 +497,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void fetchWeatherData(double latitude, double longitude) {
         if (!isNetworkAvailable()) {
             Log.d(TAG, "No network connection, loading from cache.");
-            adapter.notifyItemChanged(1); // Rebind to load from cache
+            adapter.notifyItemChanged(POSITION_WEATHER); // Rebind to load from cache
             return;
         }
 
@@ -509,7 +513,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 if (response.isSuccessful() && response.body() != null) {
                     latestWeather = response.body();
                     saveToCache(WEATHER_CACHE_KEY, latestWeather);
-                    adapter.notifyItemChanged(1); // Update Weather card
+                    adapter.notifyItemChanged(POSITION_WEATHER); // Update Weather card
                     refreshDailySummary();
                     updateWidget();
                 } else {
@@ -521,7 +525,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
                 Log.e(TAG, "Weather failed", t);
                 // Re-bind the weather item to trigger loading from cache
-                runOnUiThread(() -> adapter.notifyItemChanged(1));
+                runOnUiThread(() -> adapter.notifyItemChanged(POSITION_WEATHER));
             }
         });
     }
@@ -788,7 +792,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
                     try {
                         startActivity(intent);
-                    } catch (Exception e) {
+                    } catch (android.content.ActivityNotFoundException e) {
                         Log.e(TAG, "Cannot open calendar event", e);
                         Toast.makeText(MainActivity.this, "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
                     }
@@ -850,11 +854,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 onLocationPermissionGranted.run();
                 onLocationPermissionGranted = null; // Consume the one-time runnable
             }
-
-            // If permission was just granted, trigger a refresh to use the real location.
-            if (granted) {
-                fetchLocationAndThenWeatherData();
-            }
         } else if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
             int calendarPosition = findPositionForSection(SECTION_CALENDAR);
             if (calendarPosition != -1) {
@@ -895,10 +894,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         String nextEventTitle = (latestEvents != null && !latestEvents.isEmpty()) ? latestEvents.get(0).getTitle() : "";
         String newsTitle = (topHeadline != null) ? topHeadline.getTitle() : "No major news";
 
-        String timeGreeting = getGreeting();
-        if (timeGreeting.contains(",")) {
-            timeGreeting = timeGreeting.split(",")[0];
-        }
+        String timeGreeting = getTimeBasedGreeting();
 
         String eventsSummary;
         if (calendarQueryError) {
@@ -914,7 +910,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         );
 
         // Update Adapter (Header)
-        adapter.notifyItemChanged(0);
+        adapter.notifyItemChanged(POSITION_HEADER);
 
         // Update Widget Cache
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_SUMMARY_CACHE, generatedSummary).apply();
@@ -944,14 +940,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(key, gson.toJson(data)).apply();
     }
 
-    String getGreeting() {
-        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
+    private String getTimeBasedGreeting() {
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
-        String greeting;
-        if (timeOfDay >= 0 && timeOfDay < 12) greeting = "Good morning";
-        else if (timeOfDay >= 12 && timeOfDay < 17) greeting = "Good afternoon";
-        else greeting = "Good evening";
+        if (timeOfDay >= 0 && timeOfDay < 12) return "Good morning";
+        else if (timeOfDay >= 12 && timeOfDay < 17) return "Good afternoon";
+        else return "Good evening";
+    }
+
+    String getGreeting() {
+        String userName = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
+        String greeting = getTimeBasedGreeting();
 
         if (!TextUtils.isEmpty(userName)) {
             return greeting + ", " + userName;
