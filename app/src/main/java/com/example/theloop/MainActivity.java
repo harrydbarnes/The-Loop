@@ -96,9 +96,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     static final String KEY_FIRST_RUN = "is_first_run";
     static final String KEY_USER_NAME = "user_name";
-    private static final String NEWS_CACHE_KEY = "news_cache";
-    private static final String KEY_SECTION_ORDER = "section_order";
-    private static final String KEY_SUMMARY_CACHE = "summary_cache";
 
     public static final String SECTION_HEADLINES = "headlines";
     public static final String SECTION_CALENDAR = "calendar";
@@ -213,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        String order = prefs.getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        String order = prefs.getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
 
         adapter = new DashboardAdapter(this, sections);
@@ -467,6 +464,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                         processGeocoderAddresses(addresses);
                                     } catch (java.io.IOException e) {
                                         Log.e(TAG, "Failed to get location name from geocoder", e);
+                                        processGeocoderAddresses(java.util.Collections.emptyList());
                                     }
                                 });
                             }
@@ -636,7 +634,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     cachedNewsResponse = response.body();
-                    saveToCache(NEWS_CACHE_KEY, cachedNewsResponse);
+                    saveToCache(AppConstants.NEWS_CACHE_KEY, cachedNewsResponse);
 
                     // Extract top headline for summary (From US or world usually)
                     List<Article> defaults = cachedNewsResponse.getUs();
@@ -662,7 +660,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 }
                 Log.e(TAG, "News API call failed.", t);
                 SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-                String cachedJson = prefs.getString(NEWS_CACHE_KEY, null);
+                String cachedJson = prefs.getString(AppConstants.NEWS_CACHE_KEY, null);
                 if (cachedJson != null) {
                     cachedNewsResponse = gson.fromJson(cachedJson, NewsResponse.class);
                     if (holder != null) {
@@ -927,7 +925,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         adapter.notifyItemChanged(POSITION_HEADER);
 
         // Update Widget Cache
-        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_SUMMARY_CACHE, generatedSummary).apply();
+        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(AppConstants.KEY_SUMMARY_CACHE, generatedSummary).apply();
         updateWidget();
     }
 
@@ -942,7 +940,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     // --- Helpers ---
 
     private int findPositionForSection(String section) {
-        String order = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+        String order = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
         for (int i=0; i<sections.length; i++) {
             if (sections[i].equals(section)) return i + 2; // +2 for Header and Weather
