@@ -34,8 +34,6 @@ public class DayAheadWidget extends AppWidgetProvider {
                 }
             } catch (com.google.gson.JsonSyntaxException e) {
                 android.util.Log.e("DayAheadWidget", "Error parsing weather JSON from cache", e);
-            } catch (Exception e) {
-                android.util.Log.e("DayAheadWidget", "Unexpected error in widget update", e);
             }
         }
 

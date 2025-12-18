@@ -45,6 +45,7 @@ import androidx.health.connect.client.records.StepsRecord;
 import androidx.health.connect.client.request.AggregateRequest;
 import androidx.health.connect.client.time.TimeRangeFilter;
 import androidx.health.connect.client.PermissionController;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -53,14 +54,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.theloop.models.Article;
 import com.example.theloop.models.CalendarEvent;
-import com.example.theloop.models.FunFactResponse;
 import com.example.theloop.models.NewsResponse;
 import com.example.theloop.models.WeatherResponse;
-import com.example.theloop.network.FunFactApiService;
-import com.example.theloop.network.NewsApiService;
-import com.example.theloop.network.NewsRetrofitClient;
-import com.example.theloop.network.RetrofitClient;
-import com.example.theloop.network.WeatherApiService;
 import com.example.theloop.utils.AppConstants;
 import com.example.theloop.utils.AppUtils;
 import com.example.theloop.health.HealthConnectHelper;
@@ -82,10 +77,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity implements DashboardAdapter.Binder, TextToSpeech.OnInitListener {
 
@@ -115,6 +106,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
     };
 
+    private MainViewModel viewModel;
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
     private Geocoder geocoder;
@@ -144,11 +136,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     });
     private String cachedLocationName;
 
-    // Call objects to cancel on destroy
-    private Call<WeatherResponse> weatherCall;
-    private Call<NewsResponse> newsCall;
-    private Call<FunFactResponse> funFactCall;
-
     // Data State for Summary
     private WeatherResponse latestWeather;
     private List<CalendarEvent> latestEvents;
@@ -169,6 +156,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        viewModel = new ViewModelProvider(this).get(MainViewModel.class);
+
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         if (Geocoder.isPresent()) {
             geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
@@ -181,6 +170,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         // Init TTS
         textToSpeech = new TextToSpeech(this, this);
+
+        observeViewModel();
 
         if (isFirstRun) {
             runSetupSequence();
@@ -196,6 +187,35 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 "widget_update",
                 ExistingPeriodicWorkPolicy.KEEP,
                 widgetWorkRequest);
+    }
+
+    private void observeViewModel() {
+        viewModel.latestWeather.observe(this, weather -> {
+            latestWeather = weather;
+            if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
+            refreshDailySummary();
+            updateWidget();
+        });
+
+        viewModel.cachedNewsResponse.observe(this, news -> {
+            cachedNewsResponse = news;
+             // Extract top headline for summary (From US or world usually)
+            List<Article> defaults = news.getUs();
+            if (defaults != null && !defaults.isEmpty()) {
+                topHeadline = defaults.get(0);
+            }
+            refreshDailySummary();
+            if (adapter != null) {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
+            }
+        });
+
+        viewModel.funFactText.observe(this, fact -> {
+            funFactText = fact;
+            if (adapter != null) {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
+            }
+        });
     }
 
     private void initHealthConnect() {
@@ -238,15 +258,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
         if (healthConnectHelper != null) {
             healthConnectHelper.cancel();
-        }
-        if (weatherCall != null) {
-            weatherCall.cancel();
-        }
-        if (newsCall != null) {
-            newsCall.cancel();
-        }
-        if (funFactCall != null) {
-            funFactCall.cancel();
         }
     }
 
@@ -502,53 +513,19 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void fetchWeatherData(double latitude, double longitude) {
         if (!isNetworkAvailable()) {
             Log.d(TAG, "No network connection, loading from cache.");
-            adapter.notifyItemChanged(POSITION_WEATHER); // Rebind to load from cache
+            viewModel.loadWeatherFromCache();
             return;
         }
-
-        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
-
-        WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
-        weatherCall = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto");
-
-        weatherCall.enqueue(new Callback<WeatherResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<WeatherResponse> call, @NonNull Response<WeatherResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    latestWeather = response.body();
-                    saveToCache(AppConstants.WEATHER_CACHE_KEY, latestWeather);
-                    adapter.notifyItemChanged(POSITION_WEATHER); // Update Weather card
-                    refreshDailySummary();
-                    updateWidget();
-                } else {
-                    Log.e(TAG, "Weather API response not successful: " + response.code());
-                    onFailure(call, new java.io.IOException("API response not successful: " + response.code()));
-                }
-            }
-            @Override
-            public void onFailure(@NonNull Call<WeatherResponse> call, @NonNull Throwable t) {
-                Log.e(TAG, "Weather failed", t);
-                // Re-bind the weather item to trigger loading from cache
-                if (adapter != null) {
-                    adapter.notifyItemChanged(POSITION_WEATHER);
-                }
-            }
-        });
+        viewModel.fetchWeatherData(latitude, longitude);
     }
 
     private void loadWeatherFromCache(DashboardAdapter.WeatherViewHolder holder) {
-        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        String cachedJson = prefs.getString(AppConstants.WEATHER_CACHE_KEY, null);
-        holder.progressBar.setVisibility(View.GONE);
-        if (cachedJson != null) {
-            latestWeather = gson.fromJson(cachedJson, WeatherResponse.class);
-            holder.contentLayout.setVisibility(View.VISIBLE);
-            populateWeatherCard(holder, latestWeather);
-            updateLocationName(holder);
-        } else {
-            holder.errorText.setVisibility(View.VISIBLE);
+        // Just trigger VM to load if not present. But for bindWeather, we check latestWeather.
+        // If latestWeather is null, we can ask VM to load from cache again or show error.
+        if (latestWeather == null) {
+             viewModel.loadWeatherFromCache();
         }
+        // UI Update handled by observer
     }
 
     private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
@@ -627,55 +604,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
         if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
-        NewsApiService apiService = NewsRetrofitClient.getClient().create(NewsApiService.class);
-        newsCall = apiService.getNewsFeed();
-        newsCall.enqueue(new Callback<NewsResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<NewsResponse> call, @NonNull Response<NewsResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    cachedNewsResponse = response.body();
-                    saveToCache(AppConstants.NEWS_CACHE_KEY, cachedNewsResponse);
-
-                    // Extract top headline for summary (From US or world usually)
-                    List<Article> defaults = cachedNewsResponse.getUs();
-                    if (defaults != null && !defaults.isEmpty()) {
-                        topHeadline = defaults.get(0);
-                    }
-                    refreshDailySummary();
-
-                    if (holder != null) {
-                        holder.progressBar.setVisibility(View.GONE);
-                        displayNewsForCategory(holder, cachedNewsResponse);
-                    }
-                } else {
-                    Log.e(TAG, "News API response not successful: " + response.code());
-                    onFailure(call, new java.io.IOException("API response not successful: " + response.code()));
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<NewsResponse> call, @NonNull Throwable t) {
-                if (holder != null) {
-                    holder.progressBar.setVisibility(View.GONE);
-                }
-                Log.e(TAG, "News API call failed.", t);
-                SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-                String cachedJson = prefs.getString(AppConstants.NEWS_CACHE_KEY, null);
-                if (cachedJson != null) {
-                    cachedNewsResponse = gson.fromJson(cachedJson, NewsResponse.class);
-                    if (holder != null) {
-                         displayNewsForCategory(holder, cachedNewsResponse);
-                    }
-                } else if (holder != null) {
-                    holder.errorText.setVisibility(View.VISIBLE);
-                }
-            }
-        });
+        viewModel.fetchNewsData();
     }
 
     private void fetchNewsDataForSummary() {
-        // Just triggers the fetch if we don't have it, no UI holder needed
-        fetchNewsData(null);
+        viewModel.fetchNewsData();
     }
 
     private void displayNewsForCategory(DashboardAdapter.HeadlinesViewHolder holder, NewsResponse response) {
@@ -816,32 +749,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     // --- Fun Fact Logic ---
 
     private void fetchFunFact() {
-        FunFactApiService api = FunFactRetrofitClient.getClient().create(FunFactApiService.class);
-        funFactCall = api.getRandomFact("en");
-        funFactCall.enqueue(new Callback<FunFactResponse>() {
-            @Override
-            public void onResponse(Call<FunFactResponse> call, Response<FunFactResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    funFactText = response.body().getText();
-                } else {
-                    loadFallbackFunFact();
-                }
-                adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
-            }
-            @Override
-            public void onFailure(Call<FunFactResponse> call, Throwable t) {
-                loadFallbackFunFact();
-                adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
-            }
-        });
-    }
-
-    private void loadFallbackFunFact() {
-        try {
-            String[] facts = getResources().getStringArray(R.array.fun_facts);
-            int idx = Calendar.getInstance().get(Calendar.DAY_OF_YEAR) % facts.length;
-            funFactText = facts[idx];
-        } catch (Exception e) { funFactText = "Did you know? Code is poetry."; }
+        viewModel.fetchFunFact();
     }
 
     // --- Health Connect Logic ---
