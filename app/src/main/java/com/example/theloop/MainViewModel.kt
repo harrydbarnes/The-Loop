@@ -111,10 +111,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful && response.body() != null) {
                     _cachedNewsResponse.postValue(response.body())
                     saveToCache(AppConstants.NEWS_CACHE_KEY, response.body())
-                } else {
-                    Log.e(TAG, "News API response not successful: " + response.code())
-                    onFailure(call, java.io.IOException("API response not successful: " + response.code()))
-                }
+} else {
+    Log.e(TAG, "News API response not successful: " + response.code())
+    loadNewsFromCache()
+}
             }
 
             override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
