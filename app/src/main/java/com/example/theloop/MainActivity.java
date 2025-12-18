@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private MainViewModel viewModel;
     private Gson gson = new Gson();
     private FusedLocationProviderClient fusedLocationProviderClient;
-    private Geocoder geocoder;
+    // Geocoder moved to ViewModel
     private int selectedNewsCategory = R.id.chip_us;
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
@@ -176,9 +176,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        if (Geocoder.isPresent()) {
-            geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
-        }
+
+        // Geocoder initialized in ViewModel
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
@@ -189,6 +188,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         textToSpeech = new TextToSpeech(this, this);
 
         observeViewModel();
+
+        viewModel.getLocationName().observe(this, name -> {
+            cachedLocationName = name;
+            if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
+        });
 
         if (isFirstRun) {
             runSetupSequence();
@@ -508,21 +512,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                 .putString(AppConstants.KEY_LONGITUDE, String.valueOf(location.getLongitude()))
                                 .apply();
 
-                        // Fetch location name
-                        if (geocoder != null) {
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1, this::processGeocoderAddresses);
-                            } else {
-                                executorService.execute(() -> {
-                                    try {
-                                        List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                                        processGeocoderAddresses(addresses);
-                                    } catch (java.io.IOException e) {
-                                        Log.e(TAG, "Failed to get location name from geocoder", e);
-                                        processGeocoderAddresses(java.util.Collections.emptyList());
-                                    }
-                                });
-                            }
+                        // Fetch location name via ViewModel
+                        if (Geocoder.isPresent()) {
+                             viewModel.fetchLocationName(location);
+                        } else {
+                             cachedLocationName = getString(R.string.unknown_location);
+                             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
                         }
 
                         fetchWeatherData(location.getLatitude(), location.getLongitude());
@@ -534,18 +529,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     Log.e(TAG, "Failed to get location.", e);
                     fetchWeatherData(AppConstants.DEFAULT_LATITUDE, AppConstants.DEFAULT_LONGITUDE);
                 });
-    }
-
-    private void processGeocoderAddresses(List<Address> addresses) {
-        String city = "";
-        if (addresses != null && !addresses.isEmpty()) {
-            city = addresses.get(0).getLocality();
-            if (TextUtils.isEmpty(city)) city = addresses.get(0).getSubAdminArea();
-        }
-        cachedLocationName = TextUtils.isEmpty(city) ? getString(R.string.unknown_location) : city;
-        runOnUiThread(() -> {
-            if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
-        });
     }
 
     private boolean isNetworkAvailable() {

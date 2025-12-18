@@ -76,6 +76,12 @@ public class WidgetUpdateWorker extends Worker {
                 getApplicationContext().sendBroadcast(intent);
 
                 return Result.success();
+            } else {
+                Log.w(TAG, "Widget weather fetch failed with code: " + response.code());
+                if (response.code() >= 500) {
+                    return Result.retry();
+                }
+                return Result.failure();
             }
         } catch (IOException e) {
             Log.e(TAG, "Widget update failed", e);

@@ -4,6 +4,9 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.Cursor
+import android.location.Address
+import android.location.Geocoder
+import android.location.Location
 import android.net.Uri
 import android.provider.CalendarContract
 import android.util.Log
@@ -53,6 +56,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _calendarQueryError = MutableLiveData(false)
     val calendarQueryError: LiveData<Boolean> = _calendarQueryError
 
+    private val _locationName = MutableLiveData<String>()
+    val locationName: LiveData<String> = _locationName
+
     // Call objects to cancel on clear
     private var weatherCall: Call<WeatherResponse>? = null
     private var newsCall: Call<NewsResponse>? = null
@@ -62,6 +68,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
         CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
     )
+
+    fun fetchLocationName(location: Location) {
+        val geocoder = Geocoder(getApplication(), java.util.Locale.getDefault())
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                processGeocoderAddresses(addresses)
+            }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    processGeocoderAddresses(addresses)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to get location name from geocoder", e)
+                    processGeocoderAddresses(null)
+                }
+            }
+        }
+    }
+
+    private fun processGeocoderAddresses(addresses: List<Address>?) {
+        val unknown = getApplication<Application>().getString(R.string.unknown_location)
+        if (!addresses.isNullOrEmpty()) {
+            val address = addresses[0]
+            val city = address.locality
+            val district = address.subAdminArea
+            val sb = StringBuilder()
+            if (!city.isNullOrEmpty()) sb.append(city)
+            else if (!district.isNullOrEmpty()) sb.append(district)
+            else sb.append(unknown)
+            _locationName.postValue(sb.toString())
+        } else {
+            _locationName.postValue(unknown)
+        }
+    }
 
     fun fetchWeatherData(latitude: Double, longitude: Double) {
         weatherCall?.cancel()
