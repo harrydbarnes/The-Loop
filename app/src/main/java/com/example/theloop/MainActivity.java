@@ -131,6 +131,33 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                             }
                         }
                     });
+
+    private final androidx.activity.result.ActivityResultLauncher<String> requestCalendarPermissionLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    viewModel.loadCalendarData();
+                } else {
+                    int calendarPosition = findPositionForSection(SECTION_CALENDAR);
+                    if (calendarPosition != -1) {
+                        adapter.notifyItemChanged(calendarPosition);
+                    }
+                }
+            });
+
+    private final androidx.activity.result.ActivityResultLauncher<String> requestLocationPermissionLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (onLocationPermissionGranted != null) {
+                    onLocationPermissionGranted.run();
+                    onLocationPermissionGranted = null;
+                }
+
+                if (isGranted) {
+                    fetchLocationAndThenWeatherData();
+                } else {
+                    Toast.makeText(this, "Location permission denied. Using default location.", Toast.LENGTH_SHORT).show();
+                }
+            });
+
     private String cachedLocationName;
 
     // Data State for Summary
@@ -178,7 +205,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
 
         // Schedule Widget Worker
+        androidx.work.Constraints constraints = new androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build();
+
         PeriodicWorkRequest widgetWorkRequest = new PeriodicWorkRequest.Builder(WidgetUpdateWorker.class, 30, java.util.concurrent.TimeUnit.MINUTES)
+                .setConstraints(constraints)
                 .build();
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 "widget_update",
@@ -356,7 +389,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             holder.errorText.setVisibility(View.GONE);
             holder.noEventsText.setVisibility(View.GONE);
             holder.permissionDeniedText.setOnClickListener(v ->
-                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALENDAR}, CALENDAR_PERMISSION_REQUEST_CODE)
+                 requestCalendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
             );
         } else {
             holder.permissionDeniedText.setVisibility(View.GONE);
@@ -457,7 +490,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void requestLocationPermission(Runnable onGranted) {
         this.onLocationPermissionGranted = onGranted;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+            requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
         } else {
             if (onLocationPermissionGranted != null) {
                 onLocationPermissionGranted.run();
@@ -738,27 +771,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
          healthPermissionLauncher.launch(permissions);
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            if (!granted) {
-                Toast.makeText(this, "Location permission denied. Using default location.", Toast.LENGTH_SHORT).show();
-            }
-
-            // If this was part of the setup sequence, complete it.
-            if (onLocationPermissionGranted != null) {
-                onLocationPermissionGranted.run();
-                onLocationPermissionGranted = null; // Consume the one-time runnable
-            }
-        } else if (requestCode == CALENDAR_PERMISSION_REQUEST_CODE) {
-            int calendarPosition = findPositionForSection(SECTION_CALENDAR);
-            if (calendarPosition != -1) {
-                adapter.notifyItemChanged(calendarPosition);
-            }
-        }
-    }
+    // onRequestPermissionsResult removed as ActivityResultLauncher is now used.
 
     private void fetchHealthData() {
         if (healthConnectClient == null || healthConnectHelper == null) return;
