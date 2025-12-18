@@ -50,7 +50,11 @@
             android:id="@+id/calendar_events_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"/>
+            android:orientation="vertical">
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_1" android:visibility="gone"/>
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_2" android:visibility="gone"/>
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_3" android:visibility="gone"/>
+        </LinearLayout>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

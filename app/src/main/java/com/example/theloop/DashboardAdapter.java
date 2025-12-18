@@ -110,6 +110,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final TextView conditions;
         final TextView highLow;
         final LinearLayout forecastContainer;
+        final View[] forecastViews;
         final TextView location;
         final ImageView settingsIcon;
 
@@ -125,6 +126,13 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             forecastContainer = v.findViewById(R.id.daily_forecast_container);
             location = v.findViewById(R.id.weather_location);
             settingsIcon = v.findViewById(R.id.weather_settings_icon);
+            forecastViews = new View[] {
+                v.findViewById(R.id.forecast_day_1),
+                v.findViewById(R.id.forecast_day_2),
+                v.findViewById(R.id.forecast_day_3),
+                v.findViewById(R.id.forecast_day_4),
+                v.findViewById(R.id.forecast_day_5)
+            };
         }
     }
 
@@ -133,6 +141,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final TextView errorText;
         final LinearLayout container;
         final ChipGroup chipGroup;
+        final View[] headlineViews;
 
         HeadlinesViewHolder(View v) {
             super(v);
@@ -140,6 +149,11 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             errorText = v.findViewById(R.id.headlines_error_text);
             container = v.findViewById(R.id.headlines_container);
             chipGroup = v.findViewById(R.id.headlines_category_chips);
+            headlineViews = new View[] {
+                v.findViewById(R.id.headline_1),
+                v.findViewById(R.id.headline_2),
+                v.findViewById(R.id.headline_3)
+            };
         }
     }
 
@@ -148,6 +162,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final TextView noEventsText;
         final TextView errorText;
         final LinearLayout eventsContainer;
+        final View[] eventViews;
 
         CalendarViewHolder(View v) {
             super(v);
@@ -155,6 +170,11 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             noEventsText = v.findViewById(R.id.calendar_no_events_text);
             errorText = v.findViewById(R.id.calendar_error_text);
             eventsContainer = v.findViewById(R.id.calendar_events_container);
+            eventViews = new View[] {
+                v.findViewById(R.id.calendar_event_1),
+                v.findViewById(R.id.calendar_event_2),
+                v.findViewById(R.id.calendar_event_3)
+            };
         }
     }
 

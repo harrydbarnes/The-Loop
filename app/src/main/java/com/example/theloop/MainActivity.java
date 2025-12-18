@@ -539,11 +539,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         com.example.theloop.models.DailyWeather daily = weather.getDaily();
         if (daily != null && daily.getTime() != null) {
-            holder.forecastContainer.removeAllViews();
-            LayoutInflater inflater = LayoutInflater.from(this);
             int minSize = Math.min(daily.getTime().size(),
                 Math.min(daily.getTemperatureMax().size(), daily.getWeatherCode().size()));
-            int daysToShow = Math.min(5, minSize);
+            int daysToShow = Math.min(holder.forecastViews.length, minSize);
 
              if (minSize > 0) {
                 double maxTemp = daily.getTemperatureMax().get(0);
@@ -551,23 +549,26 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 holder.highLow.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
             }
 
-            for (int i = 0; i < daysToShow; i++) {
-                View forecastView = inflater.inflate(R.layout.item_daily_forecast, holder.forecastContainer, false);
-                TextView dayText = forecastView.findViewById(R.id.forecast_day);
-                ImageView icon = forecastView.findViewById(R.id.forecast_icon);
-                TextView high = forecastView.findViewById(R.id.forecast_high);
-                TextView low = forecastView.findViewById(R.id.forecast_low);
+            for (int i = 0; i < holder.forecastViews.length; i++) {
+                View forecastView = holder.forecastViews[i];
+                if (i < daysToShow) {
+                    forecastView.setVisibility(View.VISIBLE);
+                    TextView dayText = forecastView.findViewById(R.id.forecast_day);
+                    ImageView icon = forecastView.findViewById(R.id.forecast_icon);
+                    TextView high = forecastView.findViewById(R.id.forecast_high);
+                    TextView low = forecastView.findViewById(R.id.forecast_low);
 
-                try {
-                    java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
-                    dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
-                } catch (Exception e) { dayText.setText("-"); }
+                    try {
+                        java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
+                        dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
+                    } catch (Exception e) { dayText.setText("-"); }
 
-                icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
-                high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
-                low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
-
-                holder.forecastContainer.addView(forecastView);
+                    icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
+                    high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
+                    low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
+                } else {
+                    forecastView.setVisibility(View.GONE);
+                }
             }
         }
     }
@@ -625,27 +626,27 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         };
 
         if (articles != null) {
-            holder.container.removeAllViews();
             holder.errorText.setVisibility(View.GONE);
-            LayoutInflater inflater = LayoutInflater.from(this);
-            int count = 0;
-            for (Article article : articles) {
-                if (count >= 3) break;
-                View headlineView = inflater.inflate(R.layout.item_headline, holder.container, false);
-                TextView title = headlineView.findViewById(R.id.headline_title);
-                TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
-                title.setText(article.getTitle());
-                sourceTextView.setText(article.getSource());
-                headlineView.setOnClickListener(v -> {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
-                    } catch (android.content.ActivityNotFoundException e) {
-                        Toast.makeText(this, "No browser found to open link.", Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Failed to open article link", e);
-                    }
-                });
-                holder.container.addView(headlineView);
-                count++;
+            for (int i = 0; i < holder.headlineViews.length; i++) {
+                View headlineView = holder.headlineViews[i];
+                if (i < articles.size()) {
+                    Article article = articles.get(i);
+                    headlineView.setVisibility(View.VISIBLE);
+                    TextView title = headlineView.findViewById(R.id.headline_title);
+                    TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
+                    title.setText(article.getTitle());
+                    sourceTextView.setText(article.getSource());
+                    headlineView.setOnClickListener(v -> {
+                        try {
+                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
+                        } catch (android.content.ActivityNotFoundException e) {
+                            Toast.makeText(this, "No browser found to open link.", Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Failed to open article link", e);
+                        }
+                    });
+                } else {
+                    headlineView.setVisibility(View.GONE);
+                }
             }
         } else {
             holder.errorText.setVisibility(View.VISIBLE);
@@ -710,7 +711,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void populateCalendarCard(DashboardAdapter.CalendarViewHolder holder, List<CalendarEvent> events) {
-        holder.eventsContainer.removeAllViews();
         holder.errorText.setVisibility(View.GONE);
         if (events.isEmpty()) {
             holder.noEventsText.setVisibility(View.VISIBLE);
@@ -718,30 +718,34 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         } else {
             holder.noEventsText.setVisibility(View.GONE);
             holder.eventsContainer.setVisibility(View.VISIBLE);
-            LayoutInflater inflater = LayoutInflater.from(this);
-            for (CalendarEvent event : events) {
-                View view = inflater.inflate(R.layout.item_calendar_event, holder.eventsContainer, false);
-                TextView title = view.findViewById(R.id.event_title);
-                TextView time = view.findViewById(R.id.event_time);
-                TextView loc = view.findViewById(R.id.event_location);
-                title.setText(event.getTitle());
-                time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
-                if (!TextUtils.isEmpty(event.getLocation())) {
-                    loc.setText(event.getLocation());
-                    loc.setVisibility(View.VISIBLE);
-                } else loc.setVisibility(View.GONE);
+            for (int i = 0; i < holder.eventViews.length; i++) {
+                View view = holder.eventViews[i];
+                if (i < events.size()) {
+                    CalendarEvent event = events.get(i);
+                    view.setVisibility(View.VISIBLE);
+                    TextView title = view.findViewById(R.id.event_title);
+                    TextView time = view.findViewById(R.id.event_time);
+                    TextView loc = view.findViewById(R.id.event_location);
+                    title.setText(event.getTitle());
+                    time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
+                    if (!TextUtils.isEmpty(event.getLocation())) {
+                        loc.setText(event.getLocation());
+                        loc.setVisibility(View.VISIBLE);
+                    } else loc.setVisibility(View.GONE);
 
-                view.setOnClickListener(v -> {
-                    Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
-                    Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
-                    try {
-                        startActivity(intent);
-                    } catch (android.content.ActivityNotFoundException e) {
-                        Log.e(TAG, "Cannot open calendar event", e);
-                        Toast.makeText(MainActivity.this, "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
-                    }
-                });
-                holder.eventsContainer.addView(view);
+                    view.setOnClickListener(v -> {
+                        Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
+                        Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
+                        try {
+                            startActivity(intent);
+                        } catch (android.content.ActivityNotFoundException e) {
+                            Log.e(TAG, "Cannot open calendar event", e);
+                            Toast.makeText(MainActivity.this, "No app found to open calendar event.", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } else {
+                    view.setVisibility(View.GONE);
+                }
             }
         }
     }
