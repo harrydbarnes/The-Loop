@@ -143,11 +143,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         funFactCall = api.getRandomFact("en")
         funFactCall?.enqueue(object : Callback<FunFactResponse> {
             override fun onResponse(call: Call<FunFactResponse>, response: Response<FunFactResponse>) {
-                if (response.isSuccessful && response.body() != null) {
-                    _funFactText.postValue(response.body()!!.text)
-                } else {
-                    loadFallbackFunFact()
-                }
+if (response.isSuccessful && response.body()?.text != null) {
+    _funFactText.postValue(response.body()!!.text)
+} else {
+    loadFallbackFunFact()
+}
             }
 
             override fun onFailure(call: Call<FunFactResponse>, t: Throwable) {
