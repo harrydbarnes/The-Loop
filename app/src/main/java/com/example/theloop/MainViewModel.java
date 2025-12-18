@@ -10,7 +10,13 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import android.content.ContentResolver;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.CalendarContract;
+
 import com.example.theloop.models.Article;
+import com.example.theloop.models.CalendarEvent;
 import com.example.theloop.models.FunFactResponse;
 import com.example.theloop.models.NewsResponse;
 import com.example.theloop.models.WeatherResponse;
@@ -23,7 +29,11 @@ import com.example.theloop.network.WeatherApiService;
 import com.example.theloop.utils.AppConstants;
 import com.google.gson.Gson;
 
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -43,10 +53,26 @@ public class MainViewModel extends AndroidViewModel {
     private final MutableLiveData<String> _funFactText = new MutableLiveData<>();
     public LiveData<String> funFactText = _funFactText;
 
+    private final MutableLiveData<List<CalendarEvent>> _calendarEvents = new MutableLiveData<>();
+    public LiveData<List<CalendarEvent>> calendarEvents = _calendarEvents;
+
+    private final MutableLiveData<Integer> _totalEventCount = new MutableLiveData<>(0);
+    public LiveData<Integer> totalEventCount = _totalEventCount;
+
+    private final MutableLiveData<Boolean> _calendarQueryError = new MutableLiveData<>(false);
+    public LiveData<Boolean> calendarQueryError = _calendarQueryError;
+
     // Call objects to cancel on clear
     private Call<WeatherResponse> weatherCall;
     private Call<NewsResponse> newsCall;
     private Call<FunFactResponse> funFactCall;
+
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private static final String[] CALENDAR_PROJECTION = new String[]{
+            CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
+            CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
+    };
 
     public MainViewModel(@NonNull Application application) {
         super(application);
@@ -163,6 +189,55 @@ public class MainViewModel extends AndroidViewModel {
         }
     }
 
+    public void loadCalendarData() {
+        executorService.execute(() -> {
+            _calendarQueryError.postValue(false);
+            List<CalendarEvent> events = new ArrayList<>();
+            try {
+                ContentResolver contentResolver = getApplication().getContentResolver();
+                Uri uri = CalendarContract.Events.CONTENT_URI;
+                long now = System.currentTimeMillis();
+                Calendar cal = Calendar.getInstance();
+                cal.setTimeInMillis(now);
+                cal.add(Calendar.HOUR_OF_DAY, 24);
+                long end = cal.getTimeInMillis();
+
+                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
+                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(end)};
+                String sort = CalendarContract.Events.DTSTART + " ASC";
+
+                try (Cursor cursor = contentResolver.query(uri, CALENDAR_PROJECTION, selection, selectionArgs, sort)) {
+                    if (cursor != null) {
+                        _totalEventCount.postValue(cursor.getCount());
+                        int idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
+                        int titleIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
+                        int startIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
+                        int endIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
+                        int locIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
+
+                        while (cursor.moveToNext() && events.size() < 3) {
+                            events.add(new CalendarEvent(
+                                cursor.getLong(idIdx), cursor.getString(titleIdx), cursor.getLong(startIdx), cursor.getLong(endIdx), cursor.getString(locIdx)
+                            ));
+                        }
+                    } else {
+                        _totalEventCount.postValue(0);
+                    }
+                }
+                _calendarEvents.postValue(events);
+            } catch (Exception e) {
+                Log.e(TAG, "Cal error", e);
+                _calendarQueryError.postValue(true);
+                _calendarEvents.postValue(Collections.emptyList());
+            }
+        });
+    }
+
+    public void saveSummaryToCache(String summary) {
+        getApplication().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(AppConstants.KEY_SUMMARY_CACHE, summary).apply();
+    }
+
     private void saveToCache(String key, Object data) {
         getApplication().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putString(key, gson.toJson(data)).apply();
@@ -171,6 +246,7 @@ public class MainViewModel extends AndroidViewModel {
     @Override
     protected void onCleared() {
         super.onCleared();
+        executorService.shutdown();
         if (weatherCall != null) weatherCall.cancel();
         if (newsCall != null) newsCall.cancel();
         if (funFactCall != null) funFactCall.cancel();

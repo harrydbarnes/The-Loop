@@ -85,9 +85,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
     private static final int HEALTH_PERMISSION_REQUEST_CODE = 102;
 
-    static final String KEY_FIRST_RUN = "is_first_run";
-    static final String KEY_USER_NAME = "user_name";
-
     public static final String SECTION_HEADLINES = "headlines";
     public static final String SECTION_CALENDAR = "calendar";
     public static final String SECTION_FUN_FACT = "fun_fact";
@@ -164,7 +161,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        boolean isFirstRun = prefs.getBoolean(KEY_FIRST_RUN, true);
+        boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
 
         initHealthConnect();
 
@@ -215,6 +212,27 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
             }
+        });
+
+        viewModel.calendarEvents.observe(this, events -> {
+            latestEvents = events;
+            if (adapter != null) {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
+            }
+            refreshDailySummary();
+        });
+
+        viewModel.totalEventCount.observe(this, count -> {
+            totalEventCount = count;
+            refreshDailySummary();
+        });
+
+        viewModel.calendarQueryError.observe(this, isError -> {
+            calendarQueryError = isError;
+            if (adapter != null) {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
+            }
+            refreshDailySummary();
         });
     }
 
@@ -409,7 +427,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void onLocationPermissionGrantedForSetup() {
-        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putBoolean(KEY_FIRST_RUN, false).apply();
+        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putBoolean(AppConstants.KEY_FIRST_RUN, false).apply();
         setupRecyclerView();
         refreshData();
     }
@@ -427,7 +445,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     if (!TextUtils.isEmpty(name)) {
                         getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                                 .edit()
-                                .putString(KEY_USER_NAME, name)
+                                .putString(AppConstants.KEY_USER_NAME, name)
                                 .apply();
                     }
                     onFinished.run();
@@ -663,51 +681,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        executorService.execute(() -> {
-            calendarQueryError = false;
-            List<CalendarEvent> events = new ArrayList<>();
-            try {
-                ContentResolver contentResolver = getContentResolver();
-                Uri uri = CalendarContract.Events.CONTENT_URI;
-                long now = System.currentTimeMillis();
-                Calendar cal = Calendar.getInstance();
-                cal.setTimeInMillis(now);
-                cal.add(Calendar.HOUR_OF_DAY, 24);
-                long end = cal.getTimeInMillis();
-
-                String selection = CalendarContract.Events.DTSTART + " >= ? AND " + CalendarContract.Events.DTSTART + " <= ?";
-                String[] selectionArgs = new String[]{String.valueOf(now), String.valueOf(end)};
-                String sort = CalendarContract.Events.DTSTART + " ASC";
-
-                try (Cursor cursor = contentResolver.query(uri, CALENDAR_PROJECTION, selection, selectionArgs, sort)) {
-                    if (cursor != null) {
-                        totalEventCount = cursor.getCount();
-                        int idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID);
-                        int titleIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE);
-                        int startIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART);
-                        int endIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND);
-                        int locIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION);
-
-                        while (cursor.moveToNext() && events.size() < 3) {
-                            events.add(new CalendarEvent(
-                                cursor.getLong(idIdx), cursor.getString(titleIdx), cursor.getLong(startIdx), cursor.getLong(endIdx), cursor.getString(locIdx)
-                            ));
-                        }
-                    } else {
-                        totalEventCount = 0;
-                    }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Cal error", e);
-                calendarQueryError = true;
-            }
-
-            latestEvents = events;
-            runOnUiThread(() -> {
-                adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
-                refreshDailySummary();
-            });
-        });
+        viewModel.loadCalendarData();
     }
 
     private void populateCalendarCard(DashboardAdapter.CalendarViewHolder holder, List<CalendarEvent> events) {
@@ -811,7 +785,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private void refreshDailySummary() {
         if (latestWeather == null) return; // Wait for weather at least
 
-        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "User");
+        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_USER_NAME, "User");
         String condition = getString(AppUtils.getWeatherDescription(latestWeather.getCurrent().getWeatherCode()));
         double temp = latestWeather.getCurrent().getTemperature();
 
@@ -837,7 +811,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         adapter.notifyItemChanged(POSITION_HEADER);
 
         // Update Widget Cache
-        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(AppConstants.KEY_SUMMARY_CACHE, generatedSummary).apply();
+        viewModel.saveSummaryToCache(generatedSummary);
         updateWidget();
     }
 
@@ -860,10 +834,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         return -1;
     }
 
-    private void saveToCache(String key, Object data) {
-        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putString(key, gson.toJson(data)).apply();
-    }
-
     private String getTimeBasedGreeting() {
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
@@ -873,7 +843,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
-        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(KEY_USER_NAME, "");
+        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_USER_NAME, "");
         String greeting = getTimeBasedGreeting();
 
         if (!TextUtils.isEmpty(userName)) {

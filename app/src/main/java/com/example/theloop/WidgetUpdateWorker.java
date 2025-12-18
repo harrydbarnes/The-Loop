@@ -54,7 +54,7 @@ public class WidgetUpdateWorker extends Worker {
 
         // Fetch Weather
         try {
-            String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, "celsius");
+            String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
 
             WeatherApiService apiService = RetrofitClient.getClient().create(WeatherApiService.class);
             Call<WeatherResponse> call = apiService.getWeather(lat, lon,
