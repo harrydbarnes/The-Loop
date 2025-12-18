@@ -79,12 +79,12 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        if (holder instanceof HeaderViewHolder h) binder.bindHeader(h);
-        else if (holder instanceof WeatherViewHolder w) binder.bindWeather(w);
-        else if (holder instanceof HeadlinesViewHolder h) binder.bindHeadlines(h);
-        else if (holder instanceof CalendarViewHolder c) binder.bindCalendar(c);
-        else if (holder instanceof FunFactViewHolder f) binder.bindFunFact(f);
-        else if (holder instanceof HealthViewHolder h) binder.bindHealth(h);
+        if (holder instanceof HeaderViewHolder headerHolder) binder.bindHeader(headerHolder);
+        else if (holder instanceof WeatherViewHolder weatherHolder) binder.bindWeather(weatherHolder);
+        else if (holder instanceof HeadlinesViewHolder headlinesHolder) binder.bindHeadlines(headlinesHolder);
+        else if (holder instanceof CalendarViewHolder calendarHolder) binder.bindCalendar(calendarHolder);
+        else if (holder instanceof FunFactViewHolder funFactHolder) binder.bindFunFact(funFactHolder);
+        else if (holder instanceof HealthViewHolder healthHolder) binder.bindHealth(healthHolder);
     }
 
     // ViewHolders

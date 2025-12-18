@@ -64,6 +64,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     fun fetchWeatherData(latitude: Double, longitude: Double) {
+        weatherCall?.cancel()
         val prefs = getApplication<Application>().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
         val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0])
 
@@ -102,6 +103,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchNewsData() {
+        newsCall?.cancel()
         val apiService = NewsRetrofitClient.getClient().create(NewsApiService::class.java)
         newsCall = apiService.newsFeed
         newsCall?.enqueue(object : Callback<NewsResponse> {
@@ -136,6 +138,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchFunFact() {
+        funFactCall?.cancel()
         val api = FunFactRetrofitClient.getClient().create(FunFactApiService::class.java)
         funFactCall = api.getRandomFact("en")
         funFactCall?.enqueue(object : Callback<FunFactResponse> {

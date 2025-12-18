@@ -63,14 +63,7 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -705,10 +698,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     // --- Calendar Logic ---
-
-    private void queryCalendarEvents(DashboardAdapter.CalendarViewHolder holder) {
-         loadCalendarDataForSummary();
-    }
 
     private void loadCalendarDataForSummary() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
