@@ -76,10 +76,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful && response.body() != null) {
                     _latestWeather.postValue(response.body())
                     saveToCache(AppConstants.WEATHER_CACHE_KEY, response.body())
-                } else {
-                    Log.e(TAG, "Weather API response not successful: " + response.code())
-                    onFailure(call, java.io.IOException("API response not successful: " + response.code()))
-                }
+} else {
+    Log.e(TAG, "Weather API response not successful: " + response.code())
+    loadWeatherFromCache()
+}
             }
 
             override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
