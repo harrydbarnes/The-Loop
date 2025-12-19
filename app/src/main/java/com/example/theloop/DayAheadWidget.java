@@ -19,7 +19,7 @@ public class DayAheadWidget extends AppWidgetProvider {
                                 int appWidgetId) {
 
         SharedPreferences prefs = context.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE);
-        String summary = prefs.getString(AppConstants.KEY_SUMMARY_CACHE, "Open The Loop to see your day ahead.");
+        String summary = prefs.getString(AppConstants.KEY_SUMMARY_CACHE, context.getString(R.string.widget_default_summary));
         String weatherJson = prefs.getString(AppConstants.WEATHER_CACHE_KEY, null);
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_day_ahead);

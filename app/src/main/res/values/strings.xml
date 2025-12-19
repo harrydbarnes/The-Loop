@@ -50,4 +50,12 @@
         <item quantity="one">You have 1 event, the next one is %2$s</item>
         <item quantity="other">You have %1$d events, the next one is %2$s</item>
     </plurals>
+
+    <string name="checking_your_day">Checking your day...</string>
+    <string name="loading_fun_fact">Loading fun fact...</string>
+    <string name="health_connect_not_available">Health Connect not available</string>
+    <string name="health_permission_denied_button">Permission Denied (Tap to Open Settings)</string>
+    <string name="health_settings_error">Could not open Health Connect settings. Please open the Health Connect app manually.</string>
+    <string name="fun_fact_fallback">Did you know? Code is poetry.</string>
+    <string name="widget_default_summary">Open The Loop to see your day ahead.</string>
 </resources>

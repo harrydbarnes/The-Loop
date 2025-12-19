@@ -97,13 +97,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     };
 
     private MainViewModel viewModel;
-    private Gson gson = new Gson();
+    // gson removed
     private FusedLocationProviderClient fusedLocationProviderClient;
     // Geocoder moved to ViewModel
     private int selectedNewsCategory = R.id.chip_us;
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    // executorService removed
     private DashboardAdapter adapter;
     private RecyclerView recyclerView;
     private TextToSpeech textToSpeech;
@@ -158,7 +158,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private List<CalendarEvent> latestEvents;
     private int totalEventCount = 0;
     private boolean calendarQueryError = false;
-    private Article topHeadline;
     private String generatedSummary;
 
     // Data state for Fun Fact
@@ -226,12 +225,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         viewModel.cachedNewsResponse.observe(this, news -> {
             cachedNewsResponse = news;
-             // Extract top headline for summary (From US or world usually)
-            List<Article> defaults = news.getUs();
-            if (defaults != null && !defaults.isEmpty()) {
-                topHeadline = defaults.get(0);
-            }
-            refreshDailySummary();
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
             }
@@ -249,12 +242,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
             }
-            refreshDailySummary();
         });
 
         viewModel.totalEventCount.observe(this, count -> {
             totalEventCount = count;
-            refreshDailySummary();
         });
 
         viewModel.calendarQueryError.observe(this, isError -> {
@@ -262,7 +253,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
             }
-            refreshDailySummary();
+        });
+
+        viewModel.summary.observe(this, summary -> {
+            generatedSummary = summary;
+            if (adapter != null) adapter.notifyItemChanged(POSITION_HEADER);
+            updateWidget();
         });
     }
 
@@ -299,7 +295,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        executorService.shutdown();
+        // executorService removed
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
@@ -337,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (generatedSummary != null) {
             holder.summary.setText(generatedSummary);
         } else {
-            holder.summary.setText("Checking your day...");
+            holder.summary.setText(getString(R.string.checking_your_day));
         }
 
         holder.playButton.setOnClickListener(v -> speakSummary());
@@ -407,14 +403,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (funFactText != null) {
             holder.funFactText.setText(funFactText);
         } else {
-            holder.funFactText.setText("Loading fun fact...");
+            holder.funFactText.setText(getString(R.string.loading_fun_fact));
         }
     }
 
     @Override
     public void bindHealth(DashboardAdapter.HealthViewHolder holder) {
         if (healthConnectClient == null) {
-            holder.errorText.setText("Health Connect not available");
+            holder.errorText.setText(getString(R.string.health_connect_not_available));
             holder.errorText.setVisibility(View.VISIBLE);
             holder.contentLayout.setVisibility(View.GONE);
             holder.permissionButton.setVisibility(View.GONE);
@@ -429,14 +425,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         } else if (healthPermissionDenied) {
              holder.contentLayout.setVisibility(View.GONE);
              holder.permissionButton.setVisibility(View.VISIBLE);
-             holder.permissionButton.setText("Permission Denied (Tap to Open Settings)");
+             holder.permissionButton.setText(getString(R.string.health_permission_denied_button));
              holder.permissionButton.setOnClickListener(v -> {
                  // Intent to open Health Connect's permission management screen
                  Intent intent = new Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS);
                  try {
                      startActivity(intent);
                  } catch (Exception e) {
-                     Toast.makeText(this, "Could not open Health Connect settings. Please open the Health Connect app manually.", Toast.LENGTH_LONG).show();
+                     Toast.makeText(this, getString(R.string.health_settings_error), Toast.LENGTH_LONG).show();
                  }
              });
         } else {
@@ -767,38 +763,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     // --- Dynamic Summary Logic ---
 
-    private void refreshDailySummary() {
-        if (latestWeather == null) return; // Wait for weather at least
-
-        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_USER_NAME, "User");
-        String condition = getString(AppUtils.getWeatherDescription(latestWeather.getCurrent().getWeatherCode()));
-        double temp = latestWeather.getCurrent().getTemperature();
-
-        String nextEventTitle = (latestEvents != null && !latestEvents.isEmpty()) ? latestEvents.get(0).getTitle() : "";
-        String newsTitle = (topHeadline != null) ? topHeadline.getTitle() : "No major news";
-
-        String timeGreeting = getTimeBasedGreeting();
-
-        String eventsSummary;
-        if (calendarQueryError) {
-            eventsSummary = getString(R.string.calendar_error);
-        } else if (totalEventCount > 0) {
-            eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, totalEventCount, totalEventCount, nextEventTitle);
-        } else {
-            eventsSummary = getResources().getQuantityString(R.plurals.daily_summary_events, 0);
-        }
-
-        generatedSummary = String.format(Locale.getDefault(), getString(R.string.daily_summary_format),
-            timeGreeting, userName, condition, temp, eventsSummary, newsTitle
-        );
-
-        // Update Adapter (Header)
-        adapter.notifyItemChanged(POSITION_HEADER);
-
-        // Update Widget Cache
-        viewModel.saveSummaryToCache(generatedSummary);
-        updateWidget();
-    }
+    // refreshDailySummary removed, handled by ViewModel and observed in MainActivity
 
     private void updateWidget() {
         Intent intent = new Intent(this, DayAheadWidget.class);

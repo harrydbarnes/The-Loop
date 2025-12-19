@@ -59,10 +59,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationName = MutableLiveData<String>()
     val locationName: LiveData<String> = _locationName
 
-    // Call objects to cancel on clear
-    private var weatherCall: Call<WeatherResponse>? = null
-    private var newsCall: Call<NewsResponse>? = null
-    private var funFactCall: Call<FunFactResponse>? = null
+    private val _summary = androidx.lifecycle.MediatorLiveData<String>()
+    val summary: LiveData<String> = _summary
 
     private val CALENDAR_PROJECTION = arrayOf(
         CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
@@ -104,30 +102,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    init {
+        val updateSummary = {
+            val weather = _latestWeather.value
+            val events = _calendarEvents.value
+            val totalEvents = _totalEventCount.value ?: 0
+            val news = _cachedNewsResponse.value
+            val calendarError = _calendarQueryError.value ?: false
+            val userName = getApplication<Application>().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(AppConstants.KEY_USER_NAME, "User") ?: "User"
+
+            val topHeadline = news?.us?.firstOrNull()
+
+            if (weather != null) {
+                val summaryText = com.example.theloop.utils.SummaryUtils.generateSummary(
+                    getApplication(),
+                    weather,
+                    events,
+                    totalEvents,
+                    topHeadline,
+                    userName,
+                    calendarError
+                )
+                _summary.postValue(summaryText)
+                saveSummaryToCache(summaryText)
+            }
+        }
+
+        _summary.addSource(_latestWeather) { updateSummary() }
+        _summary.addSource(_calendarEvents) { updateSummary() }
+        _summary.addSource(_cachedNewsResponse) { updateSummary() }
+        _summary.addSource(_totalEventCount) { updateSummary() }
+    }
+
     fun fetchWeatherData(latitude: Double, longitude: Double) {
-        weatherCall?.cancel()
         val prefs = getApplication<Application>().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
         val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0])
 
-        val apiService = RetrofitClient.getClient().create(WeatherApiService::class.java)
-        weatherCall = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto")
-
-        weatherCall?.enqueue(object : Callback<WeatherResponse> {
-            override fun onResponse(call: Call<WeatherResponse>, response: Response<WeatherResponse>) {
+        viewModelScope.launch {
+            try {
+                val apiService = RetrofitClient.getClient().create(WeatherApiService::class.java)
+                val response = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit ?: "celsius", "auto")
                 if (response.isSuccessful && response.body() != null) {
                     _latestWeather.postValue(response.body())
                     saveToCache(AppConstants.WEATHER_CACHE_KEY, response.body())
-} else {
-    Log.e(TAG, "Weather API response not successful: " + response.code())
-    loadWeatherFromCache()
-}
-            }
-
-            override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
-                Log.e(TAG, "Weather failed", t)
+                } else {
+                    Log.e(TAG, "Weather API response not successful: " + response.code())
+                    loadWeatherFromCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Weather failed", e)
                 loadWeatherFromCache()
             }
-        })
+        }
     }
 
     fun loadWeatherFromCache() {
@@ -144,25 +171,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchNewsData() {
-        newsCall?.cancel()
-        val apiService = NewsRetrofitClient.getClient().create(NewsApiService::class.java)
-        newsCall = apiService.newsFeed
-        newsCall?.enqueue(object : Callback<NewsResponse> {
-            override fun onResponse(call: Call<NewsResponse>, response: Response<NewsResponse>) {
+        viewModelScope.launch {
+            try {
+                val apiService = NewsRetrofitClient.getClient().create(NewsApiService::class.java)
+                val response = apiService.getNewsFeed()
                 if (response.isSuccessful && response.body() != null) {
                     _cachedNewsResponse.postValue(response.body())
                     saveToCache(AppConstants.NEWS_CACHE_KEY, response.body())
-} else {
-    Log.e(TAG, "News API response not successful: " + response.code())
-    loadNewsFromCache()
-}
-            }
-
-            override fun onFailure(call: Call<NewsResponse>, t: Throwable) {
-                Log.e(TAG, "News API call failed.", t)
+                } else {
+                    Log.e(TAG, "News API response not successful: " + response.code())
+                    loadNewsFromCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "News API call failed.", e)
                 loadNewsFromCache()
             }
-        })
+        }
     }
 
     fun loadNewsFromCache() {
@@ -179,22 +203,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun fetchFunFact() {
-        funFactCall?.cancel()
-        val api = FunFactRetrofitClient.getClient().create(FunFactApiService::class.java)
-        funFactCall = api.getRandomFact("en")
-        funFactCall?.enqueue(object : Callback<FunFactResponse> {
-            override fun onResponse(call: Call<FunFactResponse>, response: Response<FunFactResponse>) {
-if (response.isSuccessful && response.body()?.text != null) {
-    _funFactText.postValue(response.body()!!.text)
-} else {
-    loadFallbackFunFact()
-}
-            }
-
-            override fun onFailure(call: Call<FunFactResponse>, t: Throwable) {
+        viewModelScope.launch {
+            try {
+                val api = FunFactRetrofitClient.getClient().create(FunFactApiService::class.java)
+                val response = api.getRandomFact("en")
+                if (response.isSuccessful && response.body()?.text != null) {
+                    _funFactText.postValue(response.body()!!.text)
+                } else {
+                    loadFallbackFunFact()
+                }
+            } catch (e: Exception) {
                 loadFallbackFunFact()
             }
-        })
+        }
     }
 
     fun loadFallbackFunFact() {
@@ -203,7 +224,7 @@ if (response.isSuccessful && response.body()?.text != null) {
             val idx = Calendar.getInstance().get(Calendar.DAY_OF_YEAR) % facts.size
             _funFactText.postValue(facts[idx])
         } catch (e: Exception) {
-            _funFactText.postValue("Did you know? Code is poetry.")
+            _funFactText.postValue(getApplication<Application>().getString(R.string.fun_fact_fallback))
         }
     }
 
@@ -265,8 +286,6 @@ if (response.isSuccessful && response.body()?.text != null) {
 
     override fun onCleared() {
         super.onCleared()
-        weatherCall?.cancel()
-        newsCall?.cancel()
-        funFactCall?.cancel()
+        // Coroutines are cancelled by viewModelScope
     }
 }
