@@ -39,7 +39,7 @@ public class SummaryUtils {
         );
     }
 
-    private static String getTimeBasedGreeting() {
+    public static String getTimeBasedGreeting() {
         Calendar c = Calendar.getInstance();
         int timeOfDay = c.get(Calendar.HOUR_OF_DAY);
         if (timeOfDay >= 0 && timeOfDay < 12) return "Good morning";

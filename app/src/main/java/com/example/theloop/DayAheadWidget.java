@@ -15,6 +15,8 @@ import java.util.Locale;
 
 public class DayAheadWidget extends AppWidgetProvider {
 
+    private static final Gson gson = new Gson();
+
     static void updateAppWidget(Context context, AppWidgetManager appWidgetManager,
                                 int appWidgetId) {
 
@@ -27,7 +29,7 @@ public class DayAheadWidget extends AppWidgetProvider {
 
         if (weatherJson != null) {
             try {
-                WeatherResponse weather = new Gson().fromJson(weatherJson, WeatherResponse.class);
+                WeatherResponse weather = gson.fromJson(weatherJson, WeatherResponse.class);
                 if (weather != null && weather.getCurrent() != null) {
                     views.setTextViewText(R.id.widget_temp, String.format(Locale.getDefault(), "%.0f°", weather.getCurrent().getTemperature()));
                     views.setImageViewResource(R.id.widget_weather_icon, AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));

@@ -28,8 +28,6 @@ import com.example.theloop.utils.AppConstants
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import retrofit2.Call
-import retrofit2.Callback
 import retrofit2.Response
 import java.util.Calendar
 
@@ -207,8 +205,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val api = FunFactRetrofitClient.getClient().create(FunFactApiService::class.java)
                 val response = api.getRandomFact("en")
-                if (response.isSuccessful && response.body()?.text != null) {
-                    _funFactText.postValue(response.body()!!.text)
+                val fact = response.body()?.text
+                if (response.isSuccessful && fact != null) {
+                    _funFactText.postValue(fact)
                 } else {
                     loadFallbackFunFact()
                 }

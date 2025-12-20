@@ -19,6 +19,7 @@ class WidgetUpdateWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
     private val TAG = "WidgetUpdateWorker"
+    private val gson = Gson()
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Fetching weather for widget update...")
@@ -58,7 +59,7 @@ class WidgetUpdateWorker(appContext: Context, workerParams: WorkerParameters) :
 
             if (response.isSuccessful && response.body() != null) {
                 // Save to cache
-                val json = Gson().toJson(response.body())
+                val json = gson.toJson(response.body())
                 prefs.edit().putString(AppConstants.WEATHER_CACHE_KEY, json).apply()
 
                 // Generate Summary
@@ -67,7 +68,7 @@ class WidgetUpdateWorker(appContext: Context, workerParams: WorkerParameters) :
                     var topHeadline: Article? = null
                     if (newsJson != null) {
                         try {
-                            val news = Gson().fromJson(newsJson, NewsResponse::class.java)
+                            val news = gson.fromJson(newsJson, NewsResponse::class.java)
                             if (news != null && news.us != null && news.us.isNotEmpty()) {
                                 topHeadline = news.us[0]
                             }
