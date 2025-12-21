@@ -219,7 +219,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         viewModel.latestWeather.observe(this, weather -> {
             latestWeather = weather;
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
-            updateWidget();
         });
 
         viewModel.cachedNewsResponse.observe(this, news -> {

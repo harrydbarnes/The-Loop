@@ -48,6 +48,7 @@ dependencies {
     implementation "com.google.guava:guava:31.1-android"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+    // TODO: Upgrade Health Connect client to stable once compileSdk is 36+
     implementation "androidx.health.connect:connect-client:1.1.0-alpha11"
     implementation "androidx.work:work-runtime:2.9.0"
     // Core Library Desugaring
