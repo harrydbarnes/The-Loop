@@ -86,7 +86,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             case CalendarViewHolder calendarHolder -> binder.bindCalendar(calendarHolder);
             case FunFactViewHolder funFactHolder -> binder.bindFunFact(funFactHolder);
             case HealthViewHolder healthHolder -> binder.bindHealth(healthHolder);
-            default -> { /* No-op */ }
+            default -> throw new IllegalStateException("Unhandled ViewHolder type: " + holder.getClass().getName());
         }
     }
 
