@@ -10,8 +10,8 @@
     </string-array>
     <string-array name="fun_facts">
         <item>Honey never spoils.</item>
-        <item>Bananas are berries, but strawberries aren't.</item>
-        <item>A group of flamingos is called a "flamboyance".</item>
+        <item>Bananas are berries, but strawberries aren\'t.</item>
+        <item>A group of flamingos is called a \"flamboyance\".</item>
         <item>Octopuses have three hearts.</item>
         <item>Wombat poop is cube-shaped.</item>
         <item>The Eiffel Tower can be 15 cm taller during the summer.</item>
@@ -39,7 +39,7 @@
         <item>Goats have rectangular pupils.</item>
         <item>The fingerprints of a koala are so indistinguishable from humans that they have on occasion been confused at a crime scene.</item>
         <item>Frogs cannot vomit.</item>
-        <item>The "hashtag" symbol is technically called an octothorpe.</item>
+        <item>The \"hashtag\" symbol is technically called an octothorpe.</item>
         <item>The 100 folds in a chef's hat represent 100 ways to cook an egg.</item>
         <item>Some cats are allergic to humans.</item>
         <item>The unicorn is the national animal of Scotland.</item>
@@ -59,7 +59,7 @@
         <item>The electric chair was invented by a dentist.</item>
         <item>Apples float because they are 25% air.</item>
         <item>The total weight of ants on earth once equaled the total weight of people.</item>
-        <item>A "buttload" is a real unit of measurement for wine (126 gallons).</item>
+        <item>A \"buttload\" is a real unit of measurement for wine (126 gallons).</item>
         <item>You are 1% shorter in the evening than in the morning.</item>
     </string-array>
 </resources>
