@@ -37,11 +37,24 @@
             android:layout_gravity="center_horizontal"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/calendar_error_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/calendar_error"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/calendar_events_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"/>
+            android:orientation="vertical">
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_1" android:visibility="gone"/>
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_2" android:visibility="gone"/>
+            <include layout="@layout/item_calendar_event" android:id="@+id/calendar_event_3" android:visibility="gone"/>
+        </LinearLayout>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

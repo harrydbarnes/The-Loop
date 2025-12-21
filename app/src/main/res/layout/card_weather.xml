@@ -116,7 +116,13 @@
                     android:id="@+id/daily_forecast_container"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"/>
+                    android:orientation="horizontal">
+                    <include layout="@layout/item_daily_forecast" android:id="@+id/forecast_day_1" android:visibility="gone"/>
+                    <include layout="@layout/item_daily_forecast" android:id="@+id/forecast_day_2" android:visibility="gone"/>
+                    <include layout="@layout/item_daily_forecast" android:id="@+id/forecast_day_3" android:visibility="gone"/>
+                    <include layout="@layout/item_daily_forecast" android:id="@+id/forecast_day_4" android:visibility="gone"/>
+                    <include layout="@layout/item_daily_forecast" android:id="@+id/forecast_day_5" android:visibility="gone"/>
+                </LinearLayout>
             </HorizontalScrollView>
 
         </LinearLayout>

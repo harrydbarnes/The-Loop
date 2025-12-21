@@ -1,33 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="temp_units_display">
-        <item>Celsius</item>
-        <item>Fahrenheit</item>
+        <item>Celsius (°C)</item>
+        <item>Fahrenheit (°F)</item>
     </string-array>
     <string-array name="temp_units_values">
         <item>celsius</item>
         <item>fahrenheit</item>
     </string-array>
     <string-array name="fun_facts">
-        <item>The shortest war in history lasted 38 minutes.</item>
-        <item>Octopuses have three hearts.</item>
-        <item>Bananas are curved because they grow towards the sun.</item>
         <item>Honey never spoils.</item>
+        <item>Bananas are berries, but strawberries aren't.</item>
         <item>A group of flamingos is called a "flamboyance".</item>
+        <item>Octopuses have three hearts.</item>
         <item>Wombat poop is cube-shaped.</item>
         <item>The Eiffel Tower can be 15 cm taller during the summer.</item>
-        <item>A small child could swim through the veins of a blue whale.</item>
-        <item>The unicorn is the national animal of Scotland.</item>
-        <item>It is impossible to lick your own elbow.</item>
-        <item>Avocados are a fruit, not a vegetable.</item>
+        <item>Australia is wider than the moon.</item>
+        <item>Human teeth are the only part of the body that cannot heal themselves.</item>
+        <item>Venus is the only planet to spin clockwise.</item>
+        <item>It takes 8 minutes, 19 seconds for light to travel from the Sun to the Earth.</item>
+        <item>A cloud can weigh more than a million pounds.</item>
+        <item>The shortest war in history lasted 38 minutes.</item>
+        <item>A snail can sleep for three years.</item>
+        <item>An ostrich's eye is bigger than its brain.</item>
+        <item>Foxes are loners.</item>
+        <item>A shrimp's heart is in its head.</item>
+        <item>A rhinoceros' horn is made of hair.</item>
+        <item>Sloths take two weeks to digest their food.</item>
+        <item>A cow gives nearly 200,000 glasses of milk in a lifetime.</item>
+        <item>Bats are the only mammals that can fly.</item>
+        <item>Elephants are the only animal that can't jump.</item>
+        <item>A blue whale's tongue weighs as much as an elephant.</item>
+        <item>Ants never sleep.</item>
+        <item>Butterflies taste with their feet.</item>
+        <item>Polar bear skin is black.</item>
+        <item>A jiffy is an actual unit of time: 1/100th of a second.</item>
+        <item>The moon has moonquakes.</item>
+        <item>Goats have rectangular pupils.</item>
+        <item>The fingerprints of a koala are so indistinguishable from humans that they have on occasion been confused at a crime scene.</item>
+        <item>Frogs cannot vomit.</item>
+        <item>The "hashtag" symbol is technically called an octothorpe.</item>
+        <item>The 100 folds in a chef's hat represent 100 ways to cook an egg.</item>
         <item>Some cats are allergic to humans.</item>
-        <item>Cows have best friends.</item>
-        <item>Hot water will turn into ice faster than cold water.</item>
-        <item>The Mona Lisa has no eyebrows.</item>
-        <item>Ants take rest for around 8 minutes in 12-hour period.</item>
-        <item>\"I Am\" is the shortest complete sentence in the English language.</item>
-        <item>A bolt of lightning contains enough energy to toast 100,000 slices of bread.</item>
-        <item>You can\'t hum while holding your nose.</item>
-        <item>The heart of a shrimp is located in its head.</item>
+        <item>The unicorn is the national animal of Scotland.</item>
+        <item>There are more stars in space than grains of sand on every beach in the world.</item>
+        <item>A bolt of lightning is five times hotter than the surface of the sun.</item>
+        <item>Humans are the only animals that enjoy spicy foods.</item>
+        <item>Potato chips cause more weight gain than any other food.</item>
+        <item>The average person will spend six months of their life waiting for red lights to turn green.</item>
+        <item>It is physically impossible for pigs to look up into the sky.</item>
+        <item>Dolphins sleep with one eye open.</item>
+        <item>Chewing gum burns about 11 calories per hour.</item>
+        <item>The longest muscle in the body is the tongue (relative to size).</item>
+        <item>You can't hum while holding your nose.</item>
+        <item>Russia has a larger surface area than Pluto.</item>
+        <item>There are more fake flamingos in the world than real ones.</item>
+        <item>A crocodile cannot stick its tongue out.</item>
+        <item>The electric chair was invented by a dentist.</item>
+        <item>Apples float because they are 25% air.</item>
+        <item>The total weight of ants on earth once equaled the total weight of people.</item>
+        <item>A "buttload" is a real unit of measurement for wine (126 gallons).</item>
+        <item>You are 1% shorter in the evening than in the morning.</item>
     </string-array>
 </resources>
