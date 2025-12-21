@@ -140,7 +140,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val apiService = RetrofitClient.getClient().create(WeatherApiService::class.java)
-                val response = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit ?: "celsius", "auto")
+                val response = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto")
                 if (response.isSuccessful && response.body() != null) {
                     _latestWeather.postValue(response.body())
                     saveToCache(AppConstants.WEATHER_CACHE_KEY, response.body())
