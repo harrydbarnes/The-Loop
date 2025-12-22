@@ -4,5 +4,5 @@
 
     <dimen name="settings_icon_padding">12dp</dimen>
 
-    <dimen name="settings_icon_negative_margin">-12dp</dimen>
+    <dimen name="settings_icon_negative_margin">-@dimen/settings_icon_padding</dimen>
 </resources>
