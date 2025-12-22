@@ -135,7 +135,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun fetchWeatherData(latitude: Double, longitude: Double) {
         val prefs = getApplication<Application>().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-        val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0]) ?: AppConstants.DEFAULT_TEMP_UNIT
+        val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, null) ?: getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0]
 
         viewModelScope.launch {
             try {
