@@ -79,14 +79,20 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        switch (holder) {
-            case HeaderViewHolder headerHolder -> binder.bindHeader(headerHolder);
-            case WeatherViewHolder weatherHolder -> binder.bindWeather(weatherHolder);
-            case HeadlinesViewHolder headlinesHolder -> binder.bindHeadlines(headlinesHolder);
-            case CalendarViewHolder calendarHolder -> binder.bindCalendar(calendarHolder);
-            case FunFactViewHolder funFactHolder -> binder.bindFunFact(funFactHolder);
-            case HealthViewHolder healthHolder -> binder.bindHealth(healthHolder);
-            default -> throw new IllegalStateException("Unhandled ViewHolder type: " + holder.getClass().getName());
+        if (holder instanceof HeaderViewHolder) {
+            binder.bindHeader((HeaderViewHolder) holder);
+        } else if (holder instanceof WeatherViewHolder) {
+            binder.bindWeather((WeatherViewHolder) holder);
+        } else if (holder instanceof HeadlinesViewHolder) {
+            binder.bindHeadlines((HeadlinesViewHolder) holder);
+        } else if (holder instanceof CalendarViewHolder) {
+            binder.bindCalendar((CalendarViewHolder) holder);
+        } else if (holder instanceof FunFactViewHolder) {
+            binder.bindFunFact((FunFactViewHolder) holder);
+        } else if (holder instanceof HealthViewHolder) {
+            binder.bindHealth((HealthViewHolder) holder);
+        } else {
+            throw new IllegalStateException("Unhandled ViewHolder type: " + holder.getClass().getName());
         }
     }
 
