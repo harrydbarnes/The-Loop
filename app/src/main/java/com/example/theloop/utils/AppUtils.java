@@ -24,17 +24,17 @@ public final class AppUtils {
      * @param rawDates List of date strings in "yyyy-MM-dd" format.
      * @return List of formatted date strings (e.g., "Mon 1"), or "-" on error.
      */
-    public static java.util.List<String> formatForecastDates(java.util.List<String> rawDates) {
+    public static List<String> formatForecastDates(List<String> rawDates) {
         if (rawDates == null) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
-        java.util.List<String> formatted = new java.util.ArrayList<>(rawDates.size());
+        List<String> formatted = new ArrayList<>(rawDates.size());
         for (String raw : rawDates) {
             try {
-                java.time.LocalDate date = java.time.LocalDate.parse(raw, WEATHER_DATE_INPUT_FORMAT);
+                LocalDate date = LocalDate.parse(raw, WEATHER_DATE_INPUT_FORMAT);
                 formatted.add(date.format(WEATHER_DATE_DAY_FORMAT));
-            } catch (java.time.format.DateTimeParseException e) {
+            } catch (DateTimeParseException e) {
                 formatted.add("-");
             }
         }
