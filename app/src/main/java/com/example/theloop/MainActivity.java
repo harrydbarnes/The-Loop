@@ -90,9 +90,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
 
-    private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
-    private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
-
     private static final String[] CALENDAR_PROJECTION = new String[]{
             CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
             CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
@@ -152,6 +149,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private String cachedLocationName;
     private WeatherResponse latestWeather;
+    private List<String> cachedForecastDates;
     private List<CalendarEvent> latestEvents;
     private int totalEventCount = 0;
     private boolean calendarQueryError = false;
@@ -207,6 +205,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         // FIX: Use Getters for all ViewModel properties
         viewModel.getLatestWeather().observe(this, weather -> {
             latestWeather = weather;
+            if (weather != null && weather.getDaily() != null) {
+                cachedForecastDates = AppUtils.formatForecastDates(weather.getDaily().getTime());
+            } else {
+                cachedForecastDates = null;
+            }
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
         });
 
@@ -550,10 +553,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     TextView high = dailyHolder.high;
                     TextView low = dailyHolder.low;
 
-                    try {
-                        java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
-                        dayText.setText(date.format(WEATHER_DATE_DAY_FORMAT));
-                    } catch (Exception e) { dayText.setText("-"); }
+                    if (cachedForecastDates != null && i < cachedForecastDates.size()) {
+                        dayText.setText(cachedForecastDates.get(i));
+                    } else {
+                        dayText.setText("-");
+                    }
 
                     icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
                     high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));

@@ -40,4 +40,18 @@ public class AppUtilsTest {
         assertEquals(R.drawable.ic_weather_thunderstorm, AppUtils.getWeatherIconResource(95));
         assertEquals(R.drawable.ic_weather_cloudy, AppUtils.getWeatherIconResource(999)); // Default case
     }
+
+    @Test
+    public void formatForecastDates_formatsDatesCorrectly() {
+        List<String> rawDates = Arrays.asList("2023-10-25", "2023-10-26", "invalid-date");
+        List<String> formatted = AppUtils.formatForecastDates(rawDates);
+
+        assertEquals(3, formatted.size());
+
+        // Verify success cases dynamically to avoid locale-dependent failures
+        DateTimeFormatter testFormatter = DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
+        assertEquals(LocalDate.parse("2023-10-25").format(testFormatter), formatted.get(0));
+        assertEquals(LocalDate.parse("2023-10-26").format(testFormatter), formatted.get(1));
+        assertEquals("-", formatted.get(2));
+    }
 }

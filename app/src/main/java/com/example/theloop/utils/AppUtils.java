@@ -11,8 +11,34 @@ public final class AppUtils {
 
     private static final String TAG = "AppUtils";
 
+    private static final DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
+    private static final DateTimeFormatter WEATHER_DATE_DAY_FORMAT = DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
+
     private AppUtils() {
         // This class is not meant to be instantiated.
+    }
+
+    /**
+     * Pre-formats forecast dates to avoid repeated parsing during RecyclerView binding.
+     *
+     * @param rawDates List of date strings in "yyyy-MM-dd" format.
+     * @return List of formatted date strings (e.g., "Mon 1"), or "-" on error.
+     */
+    public static List<String> formatForecastDates(List<String> rawDates) {
+        if (rawDates == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> formatted = new ArrayList<>(rawDates.size());
+        for (String raw : rawDates) {
+            try {
+                LocalDate date = LocalDate.parse(raw, WEATHER_DATE_INPUT_FORMAT);
+                formatted.add(date.format(WEATHER_DATE_DAY_FORMAT));
+            } catch (DateTimeParseException e) {
+                formatted.add("-");
+            }
+        }
+        return formatted;
     }
 
     @StringRes
