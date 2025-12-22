@@ -12,12 +12,16 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:clipToPadding="false">
 
         <ImageView
             android:id="@+id/weather_settings_icon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="@dimen/min_touch_target_size"
+            android:layout_height="@dimen/min_touch_target_size"
+            android:padding="@dimen/settings_icon_padding"
+            android:layout_marginTop="@dimen/settings_icon_negative_margin"
+            android:layout_marginEnd="@dimen/settings_icon_negative_margin"
             android:src="@drawable/ic_settings"
             android:contentDescription="@string/settings"
             app:layout_constraintTop_toTopOf="parent"
@@ -54,6 +58,7 @@
             android:orientation="vertical"
             android:visibility="gone"
             tools:visibility="visible"
+            android:layout_marginTop="@dimen/settings_icon_negative_margin"
             app:layout_constraintTop_toBottomOf="@id/weather_settings_icon">
 
             <LinearLayout
