@@ -47,8 +47,11 @@ public class AppUtilsTest {
         java.util.List<String> formatted = AppUtils.formatForecastDates(rawDates);
 
         assertEquals(3, formatted.size());
+
+        // Verify success cases dynamically to avoid locale-dependent failures
+        java.time.format.DateTimeFormatter testFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE d", java.util.Locale.getDefault());
+        assertEquals(java.time.LocalDate.parse("2023-10-25").format(testFormatter), formatted.get(0));
+        assertEquals(java.time.LocalDate.parse("2023-10-26").format(testFormatter), formatted.get(1));
         assertEquals("-", formatted.get(2));
-        // We verify the size and the error case.
-        // We assume locale formatting works (it depends on the environment, so strictly checking "Mon 1" might fail if locale is different)
     }
 }

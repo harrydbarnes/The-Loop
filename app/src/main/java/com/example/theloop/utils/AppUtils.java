@@ -25,14 +25,16 @@ public final class AppUtils {
      * @return List of formatted date strings (e.g., "Mon 1"), or "-" on error.
      */
     public static java.util.List<String> formatForecastDates(java.util.List<String> rawDates) {
-        java.util.List<String> formatted = new java.util.ArrayList<>();
-        if (rawDates == null) return formatted;
+        if (rawDates == null) {
+            return java.util.Collections.emptyList();
+        }
 
+        java.util.List<String> formatted = new java.util.ArrayList<>(rawDates.size());
         for (String raw : rawDates) {
             try {
                 java.time.LocalDate date = java.time.LocalDate.parse(raw, WEATHER_DATE_INPUT_FORMAT);
                 formatted.add(date.format(WEATHER_DATE_DAY_FORMAT));
-            } catch (Exception e) {
+            } catch (java.time.format.DateTimeParseException e) {
                 formatted.add("-");
             }
         }
