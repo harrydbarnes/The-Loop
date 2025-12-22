@@ -63,6 +63,7 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
+import java.util.Arrays; // FIX: Added import
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +71,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import kotlin.jvm.JvmClassMappingKt; // FIX: Added for Health Connect
 
 public class MainActivity extends AppCompatActivity implements DashboardAdapter.Binder, TextToSpeech.OnInitListener {
 
@@ -97,13 +99,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     };
 
     private MainViewModel viewModel;
-    // gson removed
     private FusedLocationProviderClient fusedLocationProviderClient;
-    // Geocoder moved to ViewModel
     private int selectedNewsCategory = R.id.chip_us;
     private NewsResponse cachedNewsResponse;
     private Runnable onLocationPermissionGranted;
-    // executorService removed
     private DashboardAdapter adapter;
     private RecyclerView recyclerView;
     private TextToSpeech textToSpeech;
@@ -114,10 +113,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             registerForActivityResult(
                     androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(),
                     granted -> {
-                        if (granted.contains(HealthPermission.getReadPermission(StepsRecord.class))) {
+                        // FIX: Use JvmClassMappingKt for KClass conversion
+                        if (granted.contains(HealthPermission.getReadPermission(JvmClassMappingKt.getKotlinClass(StepsRecord.class)))) {
                             fetchHealthData();
                         } else {
-                            // User denied permission, update UI to reflect this
                             healthPermissionDenied = true;
                             if (adapter != null) {
                                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEALTH));
@@ -152,18 +151,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             });
 
     private String cachedLocationName;
-
-    // Data State for Summary
     private WeatherResponse latestWeather;
     private List<CalendarEvent> latestEvents;
     private int totalEventCount = 0;
     private boolean calendarQueryError = false;
     private String generatedSummary;
-
-    // Data state for Fun Fact
     private String funFactText;
-
-    // Data state for Health
     private long stepsToday = -1;
     private boolean healthPermissionDenied = false;
 
@@ -173,21 +166,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         setContentView(R.layout.activity_main);
 
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
-
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-
-        // Geocoder initialized in ViewModel
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
 
         initHealthConnect();
-
-        // Init TTS
         textToSpeech = new TextToSpeech(this, this);
 
         observeViewModel();
 
+        // FIX: Use Getter
         viewModel.getLocationName().observe(this, name -> {
             cachedLocationName = name;
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
@@ -200,7 +189,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             refreshData();
         }
 
-        // Schedule Widget Worker
         androidx.work.Constraints constraints = new androidx.work.Constraints.Builder()
                 .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true)
@@ -216,44 +204,45 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void observeViewModel() {
-        viewModel.latestWeather.observe(this, weather -> {
+        // FIX: Use Getters for all ViewModel properties
+        viewModel.getLatestWeather().observe(this, weather -> {
             latestWeather = weather;
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
         });
 
-        viewModel.cachedNewsResponse.observe(this, news -> {
+        viewModel.getCachedNewsResponse().observe(this, news -> {
             cachedNewsResponse = news;
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
             }
         });
 
-        viewModel.funFactText.observe(this, fact -> {
+        viewModel.getFunFactText().observe(this, fact -> {
             funFactText = fact;
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_FUN_FACT));
             }
         });
 
-        viewModel.calendarEvents.observe(this, events -> {
+        viewModel.getCalendarEvents().observe(this, events -> {
             latestEvents = events;
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
             }
         });
 
-        viewModel.totalEventCount.observe(this, count -> {
+        viewModel.getTotalEventCount().observe(this, count -> {
             totalEventCount = count;
         });
 
-        viewModel.calendarQueryError.observe(this, isError -> {
+        viewModel.getCalendarQueryError().observe(this, isError -> {
             calendarQueryError = isError;
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_CALENDAR));
             }
         });
 
-        viewModel.summary.observe(this, summary -> {
+        viewModel.getSummary().observe(this, summary -> {
             generatedSummary = summary;
             if (adapter != null) adapter.notifyItemChanged(POSITION_HEADER);
             updateWidget();
@@ -281,9 +270,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void refreshData() {
         fetchLocationAndThenWeatherData();
-        // News fetch triggered by bindHeadlines logic or manually here?
-        // Adapter binding triggers it usually, but we need data for summary too.
-        // We can trigger background fetches here.
         fetchNewsDataForSummary();
         loadCalendarDataForSummary();
         fetchFunFact();
@@ -293,7 +279,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // executorService removed
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
@@ -303,7 +288,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
     }
 
-    // --- TTS ---
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
@@ -323,8 +307,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         textToSpeech.speak(generatedSummary, TextToSpeech.QUEUE_FLUSH, null, null);
     }
 
-    // --- DashboardBinder Implementation ---
-
     @Override
     public void bindHeader(DashboardAdapter.HeaderViewHolder holder) {
         holder.greeting.setText(getGreeting());
@@ -333,7 +315,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         } else {
             holder.summary.setText(getString(R.string.checking_your_day));
         }
-
         holder.playButton.setOnClickListener(v -> speakSummary());
     }
 
@@ -347,7 +328,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             populateWeatherCard(holder, latestWeather);
             updateLocationName(holder);
         } else {
-            // Check cache or show loading/error
              loadWeatherFromCache(holder);
         }
     }
@@ -391,7 +371,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             } else if (latestEvents != null) {
                  populateCalendarCard(holder, latestEvents);
             } else {
-                loadCalendarDataForSummary(); // Fetch if not ready
+                loadCalendarDataForSummary();
             }
         }
     }
@@ -425,8 +405,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              holder.permissionButton.setVisibility(View.VISIBLE);
              holder.permissionButton.setText(getString(R.string.health_permission_denied_button));
              holder.permissionButton.setOnClickListener(v -> {
-                 // Intent to open Health Connect's permission management screen
-                 Intent intent = new Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS);
+                 // FIX: Use explicit string action if constant not found in this alpha version
+                 Intent intent = new Intent("androidx.health.connect.client.action.HEALTH_CONNECT_SETTINGS");
                  try {
                      startActivity(intent);
                  } catch (Exception e) {
@@ -439,8 +419,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              holder.permissionButton.setOnClickListener(v -> checkHealthPermissionsAndFetch());
         }
     }
-
-    // --- Logic & Helpers ---
 
     private void runSetupSequence() {
         showNameDialog(this::onNameEntered);
@@ -489,8 +467,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
     }
 
-    // --- Weather Logic ---
-
     private void fetchLocationAndThenWeatherData() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -500,13 +476,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         fusedLocationProviderClient.getLastLocation()
                 .addOnSuccessListener(this, location -> {
                     if (location != null) {
-                        // Save location for Widget
                         getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit()
                                 .putString(AppConstants.KEY_LATITUDE, String.valueOf(location.getLatitude()))
                                 .putString(AppConstants.KEY_LONGITUDE, String.valueOf(location.getLongitude()))
                                 .apply();
 
-                        // Fetch location name via ViewModel
                         if (Geocoder.isPresent()) {
                              viewModel.fetchLocationName(location);
                         } else {
@@ -533,7 +507,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void fetchWeatherData(double latitude, double longitude) {
         if (!isNetworkAvailable()) {
-            Log.d(TAG, "No network connection, loading from cache.");
             viewModel.loadWeatherFromCache();
             return;
         }
@@ -541,12 +514,9 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void loadWeatherFromCache(DashboardAdapter.WeatherViewHolder holder) {
-        // Just trigger VM to load if not present. But for bindWeather, we check latestWeather.
-        // If latestWeather is null, we can ask VM to load from cache again or show error.
         if (latestWeather == null) {
              viewModel.loadWeatherFromCache();
         }
-        // UI Update handled by observer
     }
 
     private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
@@ -571,13 +541,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             }
 
             for (int i = 0; i < holder.forecastViews.length; i++) {
-                View forecastView = holder.forecastViews[i];
+                // FIX: Correct type usage for ViewHolder
+                DashboardAdapter.WeatherViewHolder.ForecastDayViewHolder dailyHolder = holder.forecastViews[i];
                 if (i < daysToShow) {
-                    forecastView.setVisibility(View.VISIBLE);
-                    TextView dayText = forecastView.findViewById(R.id.forecast_day);
-                    ImageView icon = forecastView.findViewById(R.id.forecast_icon);
-                    TextView high = forecastView.findViewById(R.id.forecast_high);
-                    TextView low = forecastView.findViewById(R.id.forecast_low);
+                    dailyHolder.parent.setVisibility(View.VISIBLE);
+                    TextView dayText = dailyHolder.day;
+                    ImageView icon = dailyHolder.icon;
+                    TextView high = dailyHolder.high;
+                    TextView low = dailyHolder.low;
 
                     try {
                         java.time.LocalDate date = java.time.LocalDate.parse(daily.getTime().get(i), WEATHER_DATE_INPUT_FORMAT);
@@ -588,7 +559,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
                     low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
                 } else {
-                    forecastView.setVisibility(View.GONE);
+                    dailyHolder.parent.setVisibility(View.GONE);
                 }
             }
         }
@@ -622,8 +593,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             .show();
     }
 
-    // --- News Logic ---
-
     private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
         if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
         viewModel.fetchNewsData();
@@ -649,15 +618,16 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (articles != null) {
             holder.errorText.setVisibility(View.GONE);
             for (int i = 0; i < holder.headlineViews.length; i++) {
-                View headlineView = holder.headlineViews[i];
+                // FIX: Correct type usage for ViewHolder
+                DashboardAdapter.HeadlinesViewHolder.HeadlineItemViewHolder itemHolder = holder.headlineViews[i];
                 if (i < articles.size()) {
                     Article article = articles.get(i);
-                    headlineView.setVisibility(View.VISIBLE);
-                    TextView title = headlineView.findViewById(R.id.headline_title);
-                    TextView sourceTextView = headlineView.findViewById(R.id.headline_source_time);
+                    itemHolder.parent.setVisibility(View.VISIBLE);
+                    TextView title = itemHolder.title;
+                    TextView sourceTextView = itemHolder.source;
                     title.setText(article.getTitle());
                     sourceTextView.setText(article.getSource());
-                    headlineView.setOnClickListener(v -> {
+                    itemHolder.parent.setOnClickListener(v -> {
                         try {
                             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
                         } catch (android.content.ActivityNotFoundException e) {
@@ -666,15 +636,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         }
                     });
                 } else {
-                    headlineView.setVisibility(View.GONE);
+                    itemHolder.parent.setVisibility(View.GONE);
                 }
             }
         } else {
             holder.errorText.setVisibility(View.VISIBLE);
         }
     }
-
-    // --- Calendar Logic ---
 
     private void loadCalendarDataForSummary() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
@@ -692,13 +660,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             holder.noEventsText.setVisibility(View.GONE);
             holder.eventsContainer.setVisibility(View.VISIBLE);
             for (int i = 0; i < holder.eventViews.length; i++) {
-                View view = holder.eventViews[i];
+                // FIX: Correct type usage for ViewHolder
+                DashboardAdapter.CalendarViewHolder.CalendarEventItemViewHolder itemHolder = holder.eventViews[i];
                 if (i < events.size()) {
                     CalendarEvent event = events.get(i);
-                    view.setVisibility(View.VISIBLE);
-                    TextView title = view.findViewById(R.id.event_title);
-                    TextView time = view.findViewById(R.id.event_time);
-                    TextView loc = view.findViewById(R.id.event_location);
+                    itemHolder.parent.setVisibility(View.VISIBLE);
+                    TextView title = itemHolder.title;
+                    TextView time = itemHolder.time;
+                    TextView loc = itemHolder.location;
                     title.setText(event.getTitle());
                     time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
                     if (!TextUtils.isEmpty(event.getLocation())) {
@@ -706,7 +675,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         loc.setVisibility(View.VISIBLE);
                     } else loc.setVisibility(View.GONE);
 
-                    view.setOnClickListener(v -> {
+                    itemHolder.parent.setOnClickListener(v -> {
                         Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());
                         Intent intent = new Intent(Intent.ACTION_VIEW).setData(uri);
                         try {
@@ -717,27 +686,22 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                         }
                     });
                 } else {
-                    view.setVisibility(View.GONE);
+                    itemHolder.parent.setVisibility(View.GONE);
                 }
             }
         }
     }
 
-    // --- Fun Fact Logic ---
-
     private void fetchFunFact() {
         viewModel.fetchFunFact();
     }
 
-    // --- Health Connect Logic ---
-
     private void checkHealthPermissionsAndFetch() {
          Set<String> permissions = new HashSet<>();
-         permissions.add(HealthPermission.getReadPermission(StepsRecord.class));
+         // FIX: Use JvmClassMappingKt
+         permissions.add(HealthPermission.getReadPermission(JvmClassMappingKt.getKotlinClass(StepsRecord.class)));
          healthPermissionLauncher.launch(permissions);
     }
-
-    // onRequestPermissionsResult removed as ActivityResultLauncher is now used.
 
     private void fetchHealthData() {
         if (healthConnectClient == null || healthConnectHelper == null) return;
@@ -752,16 +716,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             @Override
             public void onError(Exception e) {
                 Log.e(TAG, "Health error", e);
-                // If permission error, maybe set flag
-                // For now, keep stale or error state
                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEALTH));
             }
         });
     }
-
-    // --- Dynamic Summary Logic ---
-
-    // refreshDailySummary removed, handled by ViewModel and observed in MainActivity
 
     private void updateWidget() {
         Intent intent = new Intent(this, DayAheadWidget.class);
@@ -771,13 +729,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         sendBroadcast(intent);
     }
 
-    // --- Helpers ---
-
     private int findPositionForSection(String section) {
         String order = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
         for (int i=0; i<sections.length; i++) {
-            if (sections[i].equals(section)) return i + 2; // +2 for Header and Weather
+            if (sections[i].equals(section)) return i + 2;
         }
         return -1;
     }
