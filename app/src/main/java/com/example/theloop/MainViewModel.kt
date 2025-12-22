@@ -135,7 +135,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun fetchWeatherData(latitude: Double, longitude: Double) {
         val prefs = getApplication<Application>().getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-        val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0])
+        val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getApplication<Application>().resources.getStringArray(R.array.temp_units_values)[0]) ?: AppConstants.DEFAULT_TEMP_UNIT
 
         viewModelScope.launch {
             try {
@@ -203,7 +203,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchFunFact() {
         viewModelScope.launch {
             try {
-                val api = FunFactRetrofitClient.getClient().create(FunFactApiService::class.java)
+                val api = FunFactRetrofitClient.client.create(FunFactApiService::class.java)
                 val response = api.getRandomFact("en")
                 val fact = response.body()?.text
                 if (response.isSuccessful && fact != null) {
