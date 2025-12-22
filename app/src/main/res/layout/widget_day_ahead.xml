@@ -16,7 +16,7 @@
             android:id="@+id/widget_weather_icon"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:src="@drawable/ic_launcher_foreground"
+            android:src="@mipmap/ic_launcher"
             android:contentDescription="Weather Icon"/>
 
         <TextView

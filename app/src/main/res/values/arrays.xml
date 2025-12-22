@@ -10,8 +10,8 @@
     </string-array>
     <string-array name="fun_facts">
         <item>Honey never spoils.</item>
-        <item>Bananas are berries, but strawberries aren't.</item>
-        <item>A group of flamingos is called a "flamboyance".</item>
+        <item>Bananas are berries, but strawberries aren\'t.</item>
+        <item>A group of flamingos is called a \"flamboyance\".</item>
         <item>Octopuses have three hearts.</item>
         <item>Wombat poop is cube-shaped.</item>
         <item>The Eiffel Tower can be 15 cm taller during the summer.</item>
@@ -22,15 +22,15 @@
         <item>A cloud can weigh more than a million pounds.</item>
         <item>The shortest war in history lasted 38 minutes.</item>
         <item>A snail can sleep for three years.</item>
-        <item>An ostrich's eye is bigger than its brain.</item>
+        <item>An ostrich\'s eye is bigger than its brain.</item>
         <item>Foxes are loners.</item>
-        <item>A shrimp's heart is in its head.</item>
-        <item>A rhinoceros' horn is made of hair.</item>
+        <item>A shrimp\'s heart is in its head.</item>
+        <item>A rhinoceros\' horn is made of hair.</item>
         <item>Sloths take two weeks to digest their food.</item>
         <item>A cow gives nearly 200,000 glasses of milk in a lifetime.</item>
         <item>Bats are the only mammals that can fly.</item>
-        <item>Elephants are the only animal that can't jump.</item>
-        <item>A blue whale's tongue weighs as much as an elephant.</item>
+        <item>Elephants are the only animal that can\'t jump.</item>
+        <item>A blue whale\'s tongue weighs as much as an elephant.</item>
         <item>Ants never sleep.</item>
         <item>Butterflies taste with their feet.</item>
         <item>Polar bear skin is black.</item>
@@ -39,8 +39,8 @@
         <item>Goats have rectangular pupils.</item>
         <item>The fingerprints of a koala are so indistinguishable from humans that they have on occasion been confused at a crime scene.</item>
         <item>Frogs cannot vomit.</item>
-        <item>The "hashtag" symbol is technically called an octothorpe.</item>
-        <item>The 100 folds in a chef's hat represent 100 ways to cook an egg.</item>
+        <item>The \"hashtag\" symbol is technically called an octothorpe.</item>
+        <item>The 100 folds in a chef\'s hat represent 100 ways to cook an egg.</item>
         <item>Some cats are allergic to humans.</item>
         <item>The unicorn is the national animal of Scotland.</item>
         <item>There are more stars in space than grains of sand on every beach in the world.</item>
@@ -52,14 +52,14 @@
         <item>Dolphins sleep with one eye open.</item>
         <item>Chewing gum burns about 11 calories per hour.</item>
         <item>The longest muscle in the body is the tongue (relative to size).</item>
-        <item>You can't hum while holding your nose.</item>
+        <item>You can\'t hum while holding your nose.</item>
         <item>Russia has a larger surface area than Pluto.</item>
         <item>There are more fake flamingos in the world than real ones.</item>
         <item>A crocodile cannot stick its tongue out.</item>
         <item>The electric chair was invented by a dentist.</item>
         <item>Apples float because they are 25% air.</item>
         <item>The total weight of ants on earth once equaled the total weight of people.</item>
-        <item>A "buttload" is a real unit of measurement for wine (126 gallons).</item>
+        <item>A \"buttload\" is a real unit of measurement for wine (126 gallons).</item>
         <item>You are 1% shorter in the evening than in the morning.</item>
     </string-array>
 </resources>

@@ -32,12 +32,12 @@ class HealthConnectHelper(private val context: Context) {
 
                 val response = client.aggregate(
                     AggregateRequest(
-                        metrics = setOf(StepsRecord.STEPS_COUNT_TOTAL),
+                        metrics = setOf(StepsRecord.COUNT_TOTAL),
                         timeRangeFilter = TimeRangeFilter.between(start, end)
                     )
                 )
 
-                val steps = response[StepsRecord.STEPS_COUNT_TOTAL] ?: 0L
+                val steps = response[StepsRecord.COUNT_TOTAL] ?: 0L
                 withContext(Dispatchers.Main) {
                     callback.onStepsFetched(steps)
                 }
