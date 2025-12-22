@@ -43,15 +43,15 @@ public class AppUtilsTest {
 
     @Test
     public void formatForecastDates_formatsDatesCorrectly() {
-        java.util.List<String> rawDates = java.util.Arrays.asList("2023-10-25", "2023-10-26", "invalid-date");
-        java.util.List<String> formatted = AppUtils.formatForecastDates(rawDates);
+        List<String> rawDates = Arrays.asList("2023-10-25", "2023-10-26", "invalid-date");
+        List<String> formatted = AppUtils.formatForecastDates(rawDates);
 
         assertEquals(3, formatted.size());
 
         // Verify success cases dynamically to avoid locale-dependent failures
-        java.time.format.DateTimeFormatter testFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE d", java.util.Locale.getDefault());
-        assertEquals(java.time.LocalDate.parse("2023-10-25").format(testFormatter), formatted.get(0));
-        assertEquals(java.time.LocalDate.parse("2023-10-26").format(testFormatter), formatted.get(1));
+        DateTimeFormatter testFormatter = DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
+        assertEquals(LocalDate.parse("2023-10-25").format(testFormatter), formatted.get(0));
+        assertEquals(LocalDate.parse("2023-10-26").format(testFormatter), formatted.get(1));
         assertEquals("-", formatted.get(2));
     }
 }
