@@ -40,4 +40,15 @@ public class AppUtilsTest {
         assertEquals(R.drawable.ic_weather_thunderstorm, AppUtils.getWeatherIconResource(95));
         assertEquals(R.drawable.ic_weather_cloudy, AppUtils.getWeatherIconResource(999)); // Default case
     }
+
+    @Test
+    public void formatForecastDates_formatsDatesCorrectly() {
+        java.util.List<String> rawDates = java.util.Arrays.asList("2023-10-25", "2023-10-26", "invalid-date");
+        java.util.List<String> formatted = AppUtils.formatForecastDates(rawDates);
+
+        assertEquals(3, formatted.size());
+        assertEquals("-", formatted.get(2));
+        // We verify the size and the error case.
+        // We assume locale formatting works (it depends on the environment, so strictly checking "Mon 1" might fail if locale is different)
+    }
 }

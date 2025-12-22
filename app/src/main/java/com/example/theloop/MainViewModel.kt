@@ -207,7 +207,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val response = api.getRandomFact("en")
                 val fact = response.body()?.text
                 if (response.isSuccessful && fact != null) {
-                    _funFactText.postValue(fact)
+                    _funFactText.postValue(fact!!)
                 } else {
                     loadFallbackFunFact()
                 }
