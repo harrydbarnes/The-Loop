@@ -11,8 +11,8 @@ public final class AppUtils {
 
     private static final String TAG = "AppUtils";
 
-    private static final java.time.format.DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", java.util.Locale.getDefault());
-    private static final java.time.format.DateTimeFormatter WEATHER_DATE_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("EEE d", java.util.Locale.getDefault());
+    private static final DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
+    private static final DateTimeFormatter WEATHER_DATE_DAY_FORMAT = DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
 
     private AppUtils() {
         // This class is not meant to be instantiated.
