@@ -46,7 +46,7 @@ class WidgetUpdateWorker(appContext: Context, workerParams: WorkerParameters) :
 
         // Fetch Weather
         try {
-            val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT) ?: AppConstants.DEFAULT_TEMP_UNIT
+            val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, null) ?: AppConstants.DEFAULT_TEMP_UNIT
 
             val apiService = RetrofitClient.getClient().create(WeatherApiService::class.java)
             val response = apiService.getWeather(
