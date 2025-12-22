@@ -17,11 +17,11 @@
 
         <ImageView
             android:id="@+id/weather_settings_icon"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="12dp"
-            android:layout_marginTop="-12dp"
-            android:layout_marginEnd="-12dp"
+            android:layout_width="@dimen/min_touch_target_size"
+            android:layout_height="@dimen/min_touch_target_size"
+            android:padding="@dimen/settings_icon_padding"
+            android:layout_marginTop="@dimen/settings_icon_negative_margin"
+            android:layout_marginEnd="@dimen/settings_icon_negative_margin"
             android:src="@drawable/ic_settings"
             android:contentDescription="@string/settings"
             app:layout_constraintTop_toTopOf="parent"
