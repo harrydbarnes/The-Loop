@@ -771,9 +771,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
-        if (currentUserName == null) {
-            currentUserName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_USER_NAME, "");
-        }
         String userName = currentUserName;
         String greeting = getTimeBasedGreeting();
 
