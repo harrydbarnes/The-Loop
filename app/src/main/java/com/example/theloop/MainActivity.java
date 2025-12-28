@@ -63,15 +63,17 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
-import java.util.Arrays; // FIX: Added import
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import kotlin.jvm.JvmClassMappingKt; // FIX: Added for Health Connect
+import kotlin.jvm.JvmClassMappingKt;
 
 public class MainActivity extends AppCompatActivity implements DashboardAdapter.Binder, TextToSpeech.OnInitListener {
 
@@ -110,7 +112,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             registerForActivityResult(
                     androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(),
                     granted -> {
-                        // FIX: Use JvmClassMappingKt for KClass conversion
                         if (granted.contains(HealthPermission.getReadPermission(JvmClassMappingKt.getKotlinClass(StepsRecord.class)))) {
                             fetchHealthData();
                         } else {
@@ -158,6 +159,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private long stepsToday = -1;
     private boolean healthPermissionDenied = false;
 
+    // Cache fields for performance
+    private Map<String, Integer> sectionPositions;
+    private String currentTempUnit;
+    private String currentUserName;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -169,12 +175,15 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
 
+        // Initialize cached values
+        currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
+        currentUserName = prefs.getString(AppConstants.KEY_USER_NAME, "");
+
         initHealthConnect();
         textToSpeech = new TextToSpeech(this, this);
 
         observeViewModel();
 
-        // FIX: Use Getter
         viewModel.getLocationName().observe(this, name -> {
             cachedLocationName = name;
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
@@ -202,7 +211,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void observeViewModel() {
-        // FIX: Use Getters for all ViewModel properties
         viewModel.getLatestWeather().observe(this, weather -> {
             latestWeather = weather;
             if (weather != null && weather.getDaily() != null) {
@@ -266,6 +274,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         String order = prefs.getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
+
+        // OPTIMIZATION: Cache positions to avoid repeated array searches and string splitting
+        sectionPositions = new HashMap<>();
+        for (int i = 0; i < sections.length; i++) {
+            sectionPositions.put(sections[i], i + 2); // +2 for Header and Weather
+        }
 
         adapter = new DashboardAdapter(this, sections);
         recyclerView.setAdapter(adapter);
@@ -408,7 +422,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              holder.permissionButton.setVisibility(View.VISIBLE);
              holder.permissionButton.setText(getString(R.string.health_permission_denied_button));
              holder.permissionButton.setOnClickListener(v -> {
-                 // FIX: Use explicit string action if constant not found in this alpha version
                  Intent intent = new Intent("androidx.health.connect.client.action.HEALTH_CONNECT_SETTINGS");
                  try {
                      startActivity(intent);
@@ -452,6 +465,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                                 .edit()
                                 .putString(AppConstants.KEY_USER_NAME, name)
                                 .apply();
+                        currentUserName = name; // Update cache
                     }
                     onFinished.run();
                 })
@@ -523,8 +537,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
-        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        String unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
+        String unit = currentTempUnit;
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
         holder.temp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
@@ -544,7 +557,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             }
 
             for (int i = 0; i < holder.forecastViews.length; i++) {
-                // FIX: Correct type usage for ViewHolder
                 DashboardAdapter.WeatherViewHolder.ForecastDayViewHolder dailyHolder = holder.forecastViews[i];
                 if (i < daysToShow) {
                     dailyHolder.parent.setVisibility(View.VISIBLE);
@@ -590,6 +602,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
                 String selected = unitsValues[which];
                 prefs.edit().putString(AppConstants.KEY_TEMP_UNIT, selected).apply();
+                currentTempUnit = selected; // Update cache
                 dialog.dismiss();
                 refreshData();
             })
@@ -622,7 +635,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         if (articles != null) {
             holder.errorText.setVisibility(View.GONE);
             for (int i = 0; i < holder.headlineViews.length; i++) {
-                // FIX: Correct type usage for ViewHolder
                 DashboardAdapter.HeadlinesViewHolder.HeadlineItemViewHolder itemHolder = holder.headlineViews[i];
                 if (i < articles.size()) {
                     Article article = articles.get(i);
@@ -664,7 +676,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             holder.noEventsText.setVisibility(View.GONE);
             holder.eventsContainer.setVisibility(View.VISIBLE);
             for (int i = 0; i < holder.eventViews.length; i++) {
-                // FIX: Correct type usage for ViewHolder
                 DashboardAdapter.CalendarViewHolder.CalendarEventItemViewHolder itemHolder = holder.eventViews[i];
                 if (i < events.size()) {
                     CalendarEvent event = events.get(i);
@@ -702,7 +713,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void checkHealthPermissionsAndFetch() {
          Set<String> permissions = new HashSet<>();
-         // FIX: Use JvmClassMappingKt
          permissions.add(HealthPermission.getReadPermission(JvmClassMappingKt.getKotlinClass(StepsRecord.class)));
          healthPermissionLauncher.launch(permissions);
     }
@@ -734,6 +744,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private int findPositionForSection(String section) {
+        if (sectionPositions != null) {
+            Integer position = sectionPositions.get(section);
+            if (position != null) {
+                return position;
+            }
+        }
+
+        // Fallback for edge cases (e.g. before setupRecyclerView or if map missing)
         String order = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
         String[] sections = order.split(",");
         for (int i=0; i<sections.length; i++) {
@@ -751,7 +769,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     String getGreeting() {
-        String userName = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).getString(AppConstants.KEY_USER_NAME, "");
+        String userName = currentUserName;
         String greeting = getTimeBasedGreeting();
 
         if (!TextUtils.isEmpty(userName)) {
