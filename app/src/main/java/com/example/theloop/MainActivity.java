@@ -278,7 +278,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         // OPTIMIZATION: Cache positions to avoid repeated array searches and string splitting
         sectionPositions = new HashMap<>();
         for (int i = 0; i < sections.length; i++) {
-             sectionPositions.put(sections[i], i + 2); // +2 for Header and Weather
+            sectionPositions.put(sections[i], i + 2); // +2 for Header and Weather
         }
 
         adapter = new DashboardAdapter(this, sections);
@@ -538,11 +538,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void populateWeatherCard(DashboardAdapter.WeatherViewHolder holder, WeatherResponse weather) {
         String unit = currentTempUnit;
-        if (unit == null) {
-             SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-             unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
-             currentTempUnit = unit;
-        }
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
         holder.temp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
