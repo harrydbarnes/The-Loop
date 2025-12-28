@@ -176,7 +176,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
 
         // Initialize cached values
-        currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, getResources().getStringArray(R.array.temp_units_values)[0]);
+        currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
         currentUserName = prefs.getString(AppConstants.KEY_USER_NAME, "");
 
         initHealthConnect();
