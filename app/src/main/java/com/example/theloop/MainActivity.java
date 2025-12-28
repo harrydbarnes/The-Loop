@@ -744,8 +744,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     }
 
     private int findPositionForSection(String section) {
-        if (sectionPositions != null && sectionPositions.containsKey(section)) {
-            return sectionPositions.get(section);
+        if (sectionPositions != null) {
+            Integer position = sectionPositions.get(section);
+            if (position != null) {
+                return position;
+            }
         }
 
         // Fallback for edge cases (e.g. before setupRecyclerView or if map missing)
