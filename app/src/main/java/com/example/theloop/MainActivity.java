@@ -540,7 +540,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         String unit = currentTempUnit;
         String tempSymbol = unit.equals("celsius") ? "°C" : "°F";
 
-        holder.temp.setText(String.format(Locale.getDefault(), "%.0f%s", weather.getCurrent().getTemperature(), tempSymbol));
+        // OPTIMIZATION: Use Math.round() and concatenation instead of String.format() for performance
+        holder.temp.setText(Math.round(weather.getCurrent().getTemperature()) + tempSymbol);
         holder.conditions.setText(getString(AppUtils.getWeatherDescription(weather.getCurrent().getWeatherCode())));
         holder.icon.setImageResource(AppUtils.getWeatherIconResource(weather.getCurrent().getWeatherCode()));
 
@@ -553,7 +554,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              if (minSize > 0) {
                 double maxTemp = daily.getTemperatureMax().get(0);
                 double minTemp = daily.getTemperatureMin().get(0);
-                holder.highLow.setText(String.format(Locale.getDefault(), "H:%.0f%s L:%.0f%s", maxTemp, tempSymbol, minTemp, tempSymbol));
+                holder.highLow.setText("H:" + Math.round(maxTemp) + tempSymbol + " L:" + Math.round(minTemp) + tempSymbol);
             }
 
             for (int i = 0; i < holder.forecastViews.length; i++) {
@@ -572,8 +573,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     }
 
                     icon.setImageResource(AppUtils.getWeatherIconResource(daily.getWeatherCode().get(i)));
-                    high.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMax().get(i), tempSymbol));
-                    low.setText(String.format(Locale.getDefault(), "%.0f%s", daily.getTemperatureMin().get(i), tempSymbol));
+                    high.setText(Math.round(daily.getTemperatureMax().get(i)) + tempSymbol);
+                    low.setText(Math.round(daily.getTemperatureMin().get(i)) + tempSymbol);
                 } else {
                     dailyHolder.parent.setVisibility(View.GONE);
                 }
