@@ -554,7 +554,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              if (minSize > 0) {
                 double maxTemp = daily.getTemperatureMax().get(0);
                 double minTemp = daily.getTemperatureMin().get(0);
-                holder.highLow.setText("H:" + Math.round(maxTemp) + tempSymbol + " L:" + Math.round(minTemp) + tempSymbol);
+                holder.highLow.setText(getString(R.string.weather_high_prefix) + Math.round(maxTemp) + tempSymbol + getString(R.string.weather_low_prefix) + Math.round(minTemp) + tempSymbol);
             }
 
             for (int i = 0; i < holder.forecastViews.length; i++) {
