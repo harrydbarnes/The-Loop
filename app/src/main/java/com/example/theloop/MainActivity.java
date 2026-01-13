@@ -426,7 +426,12 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                  try {
                      startActivity(intent);
                  } catch (Exception e) {
-                     Toast.makeText(this, getString(R.string.health_settings_error), Toast.LENGTH_LONG).show();
+                     // Try opening the Health Connect app on Play Store if not found
+                     try {
+                         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")));
+                     } catch (Exception ex) {
+                        Toast.makeText(this, getString(R.string.health_settings_error), Toast.LENGTH_LONG).show();
+                     }
                  }
              });
         } else {
@@ -684,12 +689,22 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     TextView title = itemHolder.title;
                     TextView time = itemHolder.time;
                     TextView loc = itemHolder.location;
+                    TextView owner = itemHolder.owner;
+
                     title.setText(event.getTitle());
                     time.setText(AppUtils.formatEventTime(this, event.getStartTime(), event.getEndTime()));
+
                     if (!TextUtils.isEmpty(event.getLocation())) {
                         loc.setText(event.getLocation());
                         loc.setVisibility(View.VISIBLE);
                     } else loc.setVisibility(View.GONE);
+
+                    if (!TextUtils.isEmpty(event.getOwnerName())) {
+                         owner.setText(event.getOwnerName());
+                         owner.setVisibility(View.VISIBLE);
+                    } else {
+                         owner.setVisibility(View.GONE);
+                    }
 
                     itemHolder.parent.setOnClickListener(v -> {
                         Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.getId());

@@ -58,4 +58,6 @@
     <string name="health_settings_error">Could not open Health Connect settings. Please open the Health Connect app manually.</string>
     <string name="fun_fact_fallback">Did you know? Code is poetry.</string>
     <string name="widget_default_summary">Open The Loop to see your day ahead.</string>
+    <string name="weather_high_prefix">H:</string>
+    <string name="weather_low_prefix"> L:</string>
 </resources>

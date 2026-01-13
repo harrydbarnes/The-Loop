@@ -62,7 +62,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val CALENDAR_PROJECTION = arrayOf(
         CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
-        CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION
+        CalendarContract.Events.DTEND, CalendarContract.Events.EVENT_LOCATION, CalendarContract.Events.CALENDAR_DISPLAY_NAME
     )
 
     fun fetchLocationName(location: Location) {
@@ -252,6 +252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val startIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART)
                     val endIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND)
                     val locIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION)
+                    val ownerIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_DISPLAY_NAME)
 
                     while (cursor.moveToNext() && events.size < 3) {
                         events.add(CalendarEvent(
@@ -259,7 +260,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             cursor.getString(titleIdx),
                             cursor.getLong(startIdx),
                             cursor.getLong(endIdx),
-                            cursor.getString(locIdx)
+                            cursor.getString(locIdx),
+                            cursor.getString(ownerIdx)
                         ))
                     }
                 } ?: run {
