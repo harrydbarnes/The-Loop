@@ -109,6 +109,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private RecyclerView recyclerView;
     private TextToSpeech textToSpeech;
     private boolean isTtsReady = false;
+    private boolean weatherError = false;
+    private boolean newsError = false;
     private HealthConnectClient healthConnectClient;
     private HealthConnectHelper healthConnectHelper;
     private final androidx.activity.result.ActivityResultLauncher<Set<String>> healthPermissionLauncher =
@@ -282,6 +284,19 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             if (adapter != null) adapter.notifyItemChanged(POSITION_HEADER);
             updateWidget();
         });
+
+        viewModel.getWeatherError().observe(this, error -> {
+            weatherError = error;
+            if (error && adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
+        });
+
+        viewModel.getNewsError().observe(this, error -> {
+            newsError = error;
+            if (error && adapter != null) {
+                adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
+                adapter.notifyItemChanged(findPositionForSection(SECTION_UK_NEWS));
+            }
+        });
     }
 
     private void initHealthConnect() {
@@ -365,9 +380,14 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         if (latestWeather != null) {
             holder.progressBar.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.GONE);
             holder.contentLayout.setVisibility(View.VISIBLE);
             populateWeatherCard(holder, latestWeather);
             updateLocationName(holder);
+        } else if (weatherError) {
+            holder.progressBar.setVisibility(View.GONE);
+            holder.contentLayout.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.VISIBLE);
         } else {
              loadWeatherFromCache(holder);
         }
@@ -388,9 +408,17 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         });
 
         if (cachedNewsResponse == null) {
-            fetchNewsData(holder);
+            if (newsError) {
+                holder.progressBar.setVisibility(View.GONE);
+                holder.errorText.setVisibility(View.VISIBLE);
+            } else {
+                holder.progressBar.setVisibility(View.VISIBLE);
+                holder.errorText.setVisibility(View.GONE);
+                fetchNewsData(holder);
+            }
         } else {
             holder.progressBar.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.GONE);
             displayNewsForCategory(holder, cachedNewsResponse);
         }
     }
@@ -401,11 +429,18 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         holder.chipGroup.setVisibility(View.GONE);
 
         if (cachedNewsResponse == null) {
-            holder.progressBar.setVisibility(View.VISIBLE);
-            // Re-use fetch logic
-            fetchNewsData(null); // Just trigger fetch
+            if (newsError) {
+                holder.progressBar.setVisibility(View.GONE);
+                holder.errorText.setVisibility(View.VISIBLE);
+            } else {
+                holder.progressBar.setVisibility(View.VISIBLE);
+                holder.errorText.setVisibility(View.GONE);
+                // Re-use fetch logic
+                fetchNewsData(null); // Just trigger fetch
+            }
         } else {
             holder.progressBar.setVisibility(View.GONE);
+            holder.errorText.setVisibility(View.GONE);
             displayUkNews(holder, cachedNewsResponse);
         }
     }
@@ -480,6 +515,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
              holder.permissionButton.setVisibility(View.VISIBLE);
              holder.permissionButton.setOnClickListener(v -> checkHealthPermissionsAndFetch());
         }
+    }
+
+    @Override
+    public void bindFooter(DashboardAdapter.FooterViewHolder holder) {
+        holder.settingsLink.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
     }
 
 
@@ -654,11 +694,15 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                     title.setText(article.getTitle());
                     sourceTextView.setText(article.getSource());
                     itemHolder.parent.setOnClickListener(v -> {
-                        try {
-                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
-                        } catch (android.content.ActivityNotFoundException e) {
-                            Toast.makeText(this, "No browser found to open link.", Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Failed to open article link", e);
+                        if (article.getUrl() != null) {
+                            try {
+                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(article.getUrl())));
+                            } catch (android.content.ActivityNotFoundException e) {
+                                Toast.makeText(this, "No browser found to open link.", Toast.LENGTH_SHORT).show();
+                                Log.e(TAG, "Failed to open article link", e);
+                            }
+                        } else {
+                            Toast.makeText(this, "Article link unavailable.", Toast.LENGTH_SHORT).show();
                         }
                     });
                 } else {

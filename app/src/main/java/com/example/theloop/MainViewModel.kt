@@ -57,6 +57,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationName = MutableLiveData<String>()
     val locationName: LiveData<String> = _locationName
 
+    private val _weatherError = MutableLiveData(false)
+    val weatherError: LiveData<Boolean> = _weatherError
+
+    private val _newsError = MutableLiveData(false)
+    val newsError: LiveData<Boolean> = _newsError
+
     private val _summary = androidx.lifecycle.MediatorLiveData<String>()
     val summary: LiveData<String> = _summary
 
@@ -142,6 +148,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val apiService = RetrofitClient.getClient().create(WeatherApiService::class.java)
                 val response = apiService.getWeather(latitude, longitude, "temperature_2m,weather_code", "weather_code,temperature_2m_max,temperature_2m_min", unit, "auto")
                 if (response.isSuccessful && response.body() != null) {
+                    _weatherError.postValue(false)
                     _latestWeather.postValue(response.body())
                     saveToCache(AppConstants.WEATHER_CACHE_KEY, response.body())
                 } else {
@@ -162,9 +169,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val weather = gson.fromJson(cachedJson, WeatherResponse::class.java)
                 _latestWeather.postValue(weather)
+                _weatherError.postValue(false)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load weather from cache", e)
+                _weatherError.postValue(true)
             }
+        } else {
+            _weatherError.postValue(true)
         }
     }
 
@@ -174,6 +185,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val apiService = NewsRetrofitClient.getClient().create(NewsApiService::class.java)
                 val response = apiService.getNewsFeed()
                 if (response.isSuccessful && response.body() != null) {
+                    _newsError.postValue(false)
                     _cachedNewsResponse.postValue(response.body())
                     saveToCache(AppConstants.NEWS_CACHE_KEY, response.body())
                 } else {
@@ -194,9 +206,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val news = gson.fromJson(cachedJson, NewsResponse::class.java)
                 _cachedNewsResponse.postValue(news)
+                _newsError.postValue(false)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load news from cache", e)
+                _newsError.postValue(true)
             }
+        } else {
+            _newsError.postValue(true)
         }
     }
 
