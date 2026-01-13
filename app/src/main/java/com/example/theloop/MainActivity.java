@@ -64,6 +64,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -83,6 +84,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final int HEALTH_PERMISSION_REQUEST_CODE = 102;
 
     public static final String SECTION_HEADLINES = "headlines";
+    public static final String SECTION_UK_NEWS = "uk_news";
     public static final String SECTION_CALENDAR = "calendar";
     public static final String SECTION_FUN_FACT = "fun_fact";
     public static final String SECTION_HEALTH = "health";
@@ -90,7 +92,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private static final int POSITION_HEADER = 0;
     private static final int POSITION_WEATHER = 1;
 
-    private static final String DEFAULT_SECTION_ORDER = SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
+    // UK News moved to front (after weather, before headlines)
+    private static final String DEFAULT_SECTION_ORDER = SECTION_UK_NEWS + "," + SECTION_HEADLINES + "," + SECTION_CALENDAR + "," + SECTION_FUN_FACT + "," + SECTION_HEALTH;
 
     private static final String[] CALENDAR_PROJECTION = new String[]{
             CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART,
@@ -173,7 +176,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        boolean isFirstRun = prefs.getBoolean(AppConstants.KEY_FIRST_RUN, true);
+        boolean onboardingCompleted = prefs.getBoolean("onboarding_completed", false);
+
+        if (!onboardingCompleted) {
+            startActivity(new Intent(this, OnboardingActivity.class));
+            finish();
+            return;
+        }
 
         // Initialize cached values
         currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
@@ -189,12 +198,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
         });
 
-        if (isFirstRun) {
-            runSetupSequence();
-        } else {
-            setupRecyclerView();
-            refreshData();
-        }
+        setupRecyclerView();
+        refreshData();
 
         androidx.work.Constraints constraints = new androidx.work.Constraints.Builder()
                 .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
@@ -208,6 +213,25 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
                 "widget_update",
                 ExistingPeriodicWorkPolicy.KEEP,
                 widgetWorkRequest);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh preferences that might have changed in SettingsActivity
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        String newUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
+        if (!newUnit.equals(currentTempUnit)) {
+            currentTempUnit = newUnit;
+            if (latestWeather != null) {
+                // Trigger re-bind
+                if (adapter != null) adapter.notifyItemChanged(POSITION_WEATHER);
+                // Also re-fetch to get correct unit data from API if needed,
+                // but API call is needed only if we want server-side conversion or if we just convert locally.
+                // Current implementation fetches with unit parameter.
+                fetchLocationAndThenWeatherData();
+            }
+        }
     }
 
     private void observeViewModel() {
@@ -337,7 +361,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     @Override
     public void bindWeather(DashboardAdapter.WeatherViewHolder holder) {
-        holder.settingsIcon.setOnClickListener(v -> showTemperatureUnitDialog());
+        holder.settingsIcon.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
 
         if (latestWeather != null) {
             holder.progressBar.setVisibility(View.GONE);
@@ -351,6 +375,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     @Override
     public void bindHeadlines(DashboardAdapter.HeadlinesViewHolder holder) {
+        if (holder.cardTitle != null) holder.cardTitle.setText("Top Headlines");
+        holder.chipGroup.setVisibility(View.VISIBLE);
         holder.chipGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == View.NO_ID) return;
             selectedNewsCategory = checkedId;
@@ -366,6 +392,21 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         } else {
             holder.progressBar.setVisibility(View.GONE);
             displayNewsForCategory(holder, cachedNewsResponse);
+        }
+    }
+
+    @Override
+    public void bindUkNews(DashboardAdapter.HeadlinesViewHolder holder) {
+        if (holder.cardTitle != null) holder.cardTitle.setText("UK News");
+        holder.chipGroup.setVisibility(View.GONE);
+
+        if (cachedNewsResponse == null) {
+            holder.progressBar.setVisibility(View.VISIBLE);
+            // Re-use fetch logic
+            fetchNewsData(null); // Just trigger fetch
+        } else {
+            holder.progressBar.setVisibility(View.GONE);
+            displayUkNews(holder, cachedNewsResponse);
         }
     }
 
@@ -441,53 +482,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
     }
 
-    private void runSetupSequence() {
-        showNameDialog(this::onNameEntered);
-    }
-
-    private void onNameEntered() {
-        requestLocationPermission(this::onLocationPermissionGrantedForSetup);
-    }
-
-    private void onLocationPermissionGrantedForSetup() {
-        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE).edit().putBoolean(AppConstants.KEY_FIRST_RUN, false).apply();
-        setupRecyclerView();
-        refreshData();
-    }
-
-    private void showNameDialog(Runnable onFinished) {
-        LayoutInflater inflater = this.getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_enter_name, null);
-        final EditText nameEditText = dialogView.findViewById(R.id.name_edit_text);
-
-        new AlertDialog.Builder(this)
-                .setView(dialogView)
-                .setTitle("Welcome to The Loop!")
-                .setPositiveButton("Save", (dialog, which) -> {
-                    String name = nameEditText.getText().toString();
-                    if (!TextUtils.isEmpty(name)) {
-                        getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
-                                .edit()
-                                .putString(AppConstants.KEY_USER_NAME, name)
-                                .apply();
-                        currentUserName = name; // Update cache
-                    }
-                    onFinished.run();
-                })
-                .setCancelable(false)
-                .show();
-    }
-
-    private void requestLocationPermission(Runnable onGranted) {
-        this.onLocationPermissionGranted = onGranted;
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
-            if (onLocationPermissionGranted != null) {
-                onLocationPermissionGranted.run();
-            }
-        }
-    }
 
     private void fetchLocationAndThenWeatherData() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
@@ -596,25 +590,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         }
     }
 
-    private void showTemperatureUnitDialog() {
-         String[] unitsDisplay = getResources().getStringArray(R.array.temp_units_display);
-         String[] unitsValues = getResources().getStringArray(R.array.temp_units_values);
-         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-         String currentUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, unitsValues[0]);
-         int checkedItem = Math.max(0, Arrays.asList(unitsValues).indexOf(currentUnit));
-
-         new AlertDialog.Builder(this)
-            .setTitle(R.string.select_temperature_unit)
-            .setSingleChoiceItems(unitsDisplay, checkedItem, (dialog, which) -> {
-                String selected = unitsValues[which];
-                prefs.edit().putString(AppConstants.KEY_TEMP_UNIT, selected).apply();
-                currentTempUnit = selected; // Update cache
-                dialog.dismiss();
-                refreshData();
-            })
-            .setNegativeButton(R.string.cancel, null)
-            .show();
-    }
 
     private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
         if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
@@ -637,8 +612,37 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             case R.id.chip_world -> response.getWorld();
             default -> response.getUs();
         };
+        populateHeadlines(holder, articles);
+    }
 
-        if (articles != null) {
+    private void displayUkNews(DashboardAdapter.HeadlinesViewHolder holder, NewsResponse response) {
+        if (holder == null) return;
+        List<String> ukSources = Arrays.asList("BBC", "The Guardian", "Sky News", "The Independent", "Telegraph", "Daily Mail", "Mirror", "Financial Times", "The Sun", "Metro", "Standard");
+
+        List<Article> allArticles = new ArrayList<>();
+        if (response.getWorld() != null) allArticles.addAll(response.getWorld());
+        if (response.getBusiness() != null) allArticles.addAll(response.getBusiness());
+        if (response.getSports() != null) allArticles.addAll(response.getSports());
+
+        List<Article> ukArticles = new ArrayList<>();
+        for (Article a : allArticles) {
+            for (String source : ukSources) {
+                if (a.getSource() != null && a.getSource().contains(source)) {
+                    ukArticles.add(a);
+                    break;
+                }
+            }
+        }
+
+        if (ukArticles.isEmpty() && response.getWorld() != null) {
+            ukArticles = response.getWorld();
+        }
+
+        populateHeadlines(holder, ukArticles);
+    }
+
+    private void populateHeadlines(DashboardAdapter.HeadlinesViewHolder holder, List<Article> articles) {
+        if (articles != null && !articles.isEmpty()) {
             holder.errorText.setVisibility(View.GONE);
             for (int i = 0; i < holder.headlineViews.length; i++) {
                 DashboardAdapter.HeadlinesViewHolder.HeadlineItemViewHolder itemHolder = holder.headlineViews[i];
@@ -663,6 +667,10 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
             }
         } else {
             holder.errorText.setVisibility(View.VISIBLE);
+            // Hide all items
+             for (DashboardAdapter.HeadlinesViewHolder.HeadlineItemViewHolder itemHolder : holder.headlineViews) {
+                 itemHolder.parent.setVisibility(View.GONE);
+             }
         }
     }
 

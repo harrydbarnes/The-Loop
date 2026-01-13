@@ -19,18 +19,22 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static final int TYPE_HEADER = 0;
     static final int TYPE_WEATHER = 1;
     static final int TYPE_HEADLINES = 2;
+    static final int TYPE_UK_NEWS = 7;
     static final int TYPE_CALENDAR = 3;
     static final int TYPE_FUN_FACT = 4;
     static final int TYPE_HEALTH = 5;
+    static final int TYPE_FOOTER = 6;
 
     // Callbacks for data binding
     public interface Binder {
         void bindHeader(HeaderViewHolder holder);
         void bindWeather(WeatherViewHolder holder);
         void bindHeadlines(HeadlinesViewHolder holder);
+        void bindUkNews(HeadlinesViewHolder holder);
         void bindCalendar(CalendarViewHolder holder);
         void bindFunFact(FunFactViewHolder holder);
         void bindHealth(HealthViewHolder holder);
+        void bindFooter(FooterViewHolder holder);
     }
 
     private final Binder binder;
@@ -46,10 +50,13 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (position == 0) return TYPE_HEADER;
         if (position == 1) return TYPE_WEATHER;
 
+        if (position == getItemCount() - 1) return TYPE_FOOTER;
+
         // Remaining positions map to sectionOrder
         String section = sectionOrder[position - 2];
         return switch (section) {
             case MainActivity.SECTION_HEADLINES -> TYPE_HEADLINES;
+            case MainActivity.SECTION_UK_NEWS -> TYPE_UK_NEWS;
             case MainActivity.SECTION_CALENDAR -> TYPE_CALENDAR;
             case MainActivity.SECTION_FUN_FACT -> TYPE_FUN_FACT;
             case MainActivity.SECTION_HEALTH -> TYPE_HEALTH;
@@ -59,7 +66,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @Override
     public int getItemCount() {
-        return 2 + sectionOrder.length; // Header + Weather + Sections
+        return 2 + sectionOrder.length + 1; // Header + Weather + Sections + Footer
     }
 
     @NonNull
@@ -70,9 +77,11 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             case TYPE_HEADER -> new HeaderViewHolder(inflater.inflate(R.layout.card_day_ahead, parent, false));
             case TYPE_WEATHER -> new WeatherViewHolder(inflater.inflate(R.layout.card_weather, parent, false));
             case TYPE_HEADLINES -> new HeadlinesViewHolder(inflater.inflate(R.layout.card_headlines, parent, false));
+            case TYPE_UK_NEWS -> new HeadlinesViewHolder(inflater.inflate(R.layout.card_headlines, parent, false));
             case TYPE_CALENDAR -> new CalendarViewHolder(inflater.inflate(R.layout.card_calendar, parent, false));
             case TYPE_FUN_FACT -> new FunFactViewHolder(inflater.inflate(R.layout.card_fun_fact, parent, false));
             case TYPE_HEALTH -> new HealthViewHolder(inflater.inflate(R.layout.card_health, parent, false));
+            case TYPE_FOOTER -> new FooterViewHolder(inflater.inflate(R.layout.item_settings_footer, parent, false));
             default -> throw new IllegalArgumentException("Invalid view type");
         };
     }
@@ -84,13 +93,19 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         } else if (holder instanceof WeatherViewHolder weatherHolder) {
             binder.bindWeather(weatherHolder);
         } else if (holder instanceof HeadlinesViewHolder headlinesHolder) {
-            binder.bindHeadlines(headlinesHolder);
+            if (getItemViewType(position) == TYPE_UK_NEWS) {
+                binder.bindUkNews(headlinesHolder);
+            } else {
+                binder.bindHeadlines(headlinesHolder);
+            }
         } else if (holder instanceof CalendarViewHolder calendarHolder) {
             binder.bindCalendar(calendarHolder);
         } else if (holder instanceof FunFactViewHolder funFactHolder) {
             binder.bindFunFact(funFactHolder);
         } else if (holder instanceof HealthViewHolder healthHolder) {
             binder.bindHealth(healthHolder);
+        } else if (holder instanceof FooterViewHolder footerHolder) {
+            binder.bindFooter(footerHolder);
         } else {
             throw new IllegalStateException("Unhandled ViewHolder type: " + holder.getClass().getName());
         }
@@ -164,6 +179,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static class HeadlinesViewHolder extends RecyclerView.ViewHolder {
         final ProgressBar progressBar;
         final TextView errorText;
+        final TextView cardTitle;
         final LinearLayout container;
         final ChipGroup chipGroup;
         final HeadlineItemViewHolder[] headlineViews;
@@ -184,6 +200,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             super(v);
             progressBar = v.findViewById(R.id.headlines_progress_bar);
             errorText = v.findViewById(R.id.headlines_error_text);
+            cardTitle = v.findViewById(R.id.headlines_card_title);
             container = v.findViewById(R.id.headlines_container);
             chipGroup = v.findViewById(R.id.headlines_category_chips);
             headlineViews = new HeadlineItemViewHolder[] {
@@ -252,6 +269,15 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             permissionButton = v.findViewById(R.id.health_permission_button);
             errorText = v.findViewById(R.id.health_error_text);
             contentLayout = v.findViewById(R.id.health_content_layout);
+        }
+    }
+
+    static class FooterViewHolder extends RecyclerView.ViewHolder {
+        final TextView settingsLink;
+
+        FooterViewHolder(View v) {
+            super(v);
+            settingsLink = v.findViewById(R.id.settings_link);
         }
     }
 }

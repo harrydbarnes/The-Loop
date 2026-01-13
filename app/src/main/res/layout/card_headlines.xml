@@ -16,6 +16,7 @@
         android:padding="16dp">
 
         <TextView
+            android:id="@+id/headlines_card_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Top Headlines"
