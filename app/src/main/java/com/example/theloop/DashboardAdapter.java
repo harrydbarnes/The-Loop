@@ -206,12 +206,14 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             final TextView title;
             final TextView time;
             final TextView location;
+            final TextView owner;
 
             CalendarEventItemViewHolder(View v) {
                 parent = v;
                 title = v.findViewById(R.id.event_title);
                 time = v.findViewById(R.id.event_time);
                 location = v.findViewById(R.id.event_location);
+                owner = v.findViewById(R.id.event_owner);
             }
         }
 
