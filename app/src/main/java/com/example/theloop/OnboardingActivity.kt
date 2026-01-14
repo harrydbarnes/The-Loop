@@ -25,7 +25,7 @@ import com.google.android.material.textfield.TextInputEditText
 class OnboardingActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG = "OnboardingActivity"
+        private val TAG = OnboardingActivity::class.java.simpleName
     }
 
     private lateinit var stepViews: Array<View>
