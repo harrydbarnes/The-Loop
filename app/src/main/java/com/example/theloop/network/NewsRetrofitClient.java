@@ -8,7 +8,7 @@ public class NewsRetrofitClient {
     private static Retrofit retrofit = null;
     private static final String BASE_URL = "https://ok.surf/api/v1/";
 
-    public static Retrofit getClient() {
+    public static synchronized Retrofit getClient() {
         if (retrofit == null) {
             retrofit = new Retrofit.Builder()
                     .baseUrl(BASE_URL)
