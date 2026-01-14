@@ -31,7 +31,7 @@ class SettingsActivity : AppCompatActivity() {
 
         try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
-            versionText.text = "Version " + pInfo.versionName
+            versionText.text = "Version ${pInfo.versionName}"
         } catch (e: Exception) {
             versionText.text = "Version Unknown"
         }
