@@ -48,7 +48,7 @@ class SettingsActivity : AppCompatActivity() {
             val radioButton = RadioButton(this)
             radioButton.text = unitsDisplay[i]
             radioButton.tag = unitsValues[i]
-            radioButton.id = i // Use index as ID
+            radioButton.id = View.generateViewId() // Use index as ID
             radioGroup.addView(radioButton)
 
             if (unitsValues[i] == currentUnit) {
