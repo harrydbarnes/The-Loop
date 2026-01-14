@@ -8,7 +8,7 @@ public class RetrofitClient {
     private static Retrofit retrofit = null;
     private static final String BASE_URL = "https://api.open-meteo.com/";
 
-    public static Retrofit getClient() {
+    public static synchronized Retrofit getClient() {
         if (retrofit == null) {
             retrofit = new Retrofit.Builder()
                     .baseUrl(BASE_URL)

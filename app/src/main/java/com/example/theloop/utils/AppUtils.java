@@ -20,7 +20,7 @@ public final class AppUtils {
 
     private static final String TAG = "AppUtils";
 
-    private static final DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault());
+    private static final DateTimeFormatter WEATHER_DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US);
     private static final DateTimeFormatter WEATHER_DATE_DAY_FORMAT = DateTimeFormatter.ofPattern("EEE d", Locale.getDefault());
 
     private AppUtils() {
