@@ -16,8 +16,11 @@
 -keep class com.example.theloop.models.** { *; }
 
 # WorkManager
--keep class androidx.work.Worker { *; }
--keep class androidx.work.ListenableWorker { *; }
+# The WorkManager library bundles its own consumer Proguard rules, so we don't need to keep its classes.
+# However, custom workers created by the application must be kept explicitly as they are instantiated via reflection.
+-keep public class com.example.theloop.WidgetUpdateWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
 
 # ViewModels
 -keepclassmembers class * extends androidx.lifecycle.ViewModel {
