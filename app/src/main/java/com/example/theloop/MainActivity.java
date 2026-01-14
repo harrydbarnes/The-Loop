@@ -191,7 +191,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         // Initialize cached values
         currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
         currentUserName = prefs.getString(AppConstants.KEY_USER_NAME, "");
-        ukSources = Arrays.asList(getResources().getStringArray(R.array.uk_news_sources));
+        ukSources = new ArrayList<>(Arrays.asList(getResources().getStringArray(R.array.uk_news_sources)));
 
         initHealthConnect();
         textToSpeech = new TextToSpeech(this, this);
