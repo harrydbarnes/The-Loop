@@ -138,7 +138,7 @@ class OnboardingActivity : AppCompatActivity() {
                  try {
                      startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
                  } catch (e: Exception) {
-                     // Ignore
+                     android.util.Log.e("OnboardingActivity", "Failed to open Play Store for Health Connect", e)
                  }
             }
         }
@@ -175,17 +175,15 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         if (currentStep == 0) {
-             btnSkip.visibility = View.INVISIBLE // Can't skip welcome/name really, or optional? Let's make it optional to enter name but not skip screen.
-             // Actually, forcing name is current behavior.
-             // Let's allow skipping name input if empty.
-             btnSkip.visibility = View.VISIBLE
+            // On the first step, allow skipping name input by making the skip button visible.
+            btnSkip.visibility = View.VISIBLE
         }
     }
 
     private fun finishOnboarding() {
         getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("onboarding_completed", true)
+            .putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true)
             .apply()
 
         startActivity(Intent(this, MainActivity::class.java))

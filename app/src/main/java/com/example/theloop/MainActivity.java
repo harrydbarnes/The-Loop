@@ -111,6 +111,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private boolean isTtsReady = false;
     private boolean weatherError = false;
     private boolean newsError = false;
+    private boolean isFetchingNews = false;
     private HealthConnectClient healthConnectClient;
     private HealthConnectHelper healthConnectHelper;
     private final androidx.activity.result.ActivityResultLauncher<Set<String>> healthPermissionLauncher =
@@ -178,7 +179,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        boolean onboardingCompleted = prefs.getBoolean("onboarding_completed", false);
+        boolean onboardingCompleted = prefs.getBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, false);
 
         if (!onboardingCompleted) {
             startActivity(new Intent(this, OnboardingActivity.class));
@@ -248,9 +249,11 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         });
 
         viewModel.getCachedNewsResponse().observe(this, news -> {
+            isFetchingNews = false;
             cachedNewsResponse = news;
             if (adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
+                adapter.notifyItemChanged(findPositionForSection(SECTION_UK_NEWS));
             }
         });
 
@@ -291,6 +294,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         });
 
         viewModel.getNewsError().observe(this, error -> {
+            isFetchingNews = false;
             newsError = error;
             if (error && adapter != null) {
                 adapter.notifyItemChanged(findPositionForSection(SECTION_HEADLINES));
@@ -312,6 +316,13 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         String order = prefs.getString(AppConstants.KEY_SECTION_ORDER, DEFAULT_SECTION_ORDER);
+
+        // Ensure UK News is present for existing users
+        if (!order.contains(SECTION_UK_NEWS)) {
+            order = SECTION_UK_NEWS + "," + order;
+            prefs.edit().putString(AppConstants.KEY_SECTION_ORDER, order).apply();
+        }
+
         String[] sections = order.split(",");
 
         // OPTIMIZATION: Cache positions to avoid repeated array searches and string splitting
@@ -632,6 +643,8 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
 
     private void fetchNewsData(DashboardAdapter.HeadlinesViewHolder holder) {
+        if (isFetchingNews) return;
+        isFetchingNews = true;
         if (holder != null) holder.progressBar.setVisibility(View.VISIBLE);
         viewModel.fetchNewsData();
     }
@@ -657,7 +670,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void displayUkNews(DashboardAdapter.HeadlinesViewHolder holder, NewsResponse response) {
         if (holder == null) return;
-        List<String> ukSources = Arrays.asList("BBC", "The Guardian", "Sky News", "The Independent", "Telegraph", "Daily Mail", "Mirror", "Financial Times", "The Sun", "Metro", "Standard");
+        List<String> ukSources = Arrays.asList(getResources().getStringArray(R.array.uk_news_sources));
 
         List<Article> allArticles = new ArrayList<>();
         if (response.getWorld() != null) allArticles.addAll(response.getWorld());

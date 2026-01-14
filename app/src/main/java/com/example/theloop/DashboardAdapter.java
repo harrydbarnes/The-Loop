@@ -19,11 +19,11 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static final int TYPE_HEADER = 0;
     static final int TYPE_WEATHER = 1;
     static final int TYPE_HEADLINES = 2;
-    static final int TYPE_UK_NEWS = 7;
     static final int TYPE_CALENDAR = 3;
     static final int TYPE_FUN_FACT = 4;
     static final int TYPE_HEALTH = 5;
-    static final int TYPE_FOOTER = 6;
+    static final int TYPE_UK_NEWS = 6;
+    static final int TYPE_FOOTER = 7;
 
     // Callbacks for data binding
     public interface Binder {

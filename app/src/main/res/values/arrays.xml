@@ -8,6 +8,19 @@
         <item>celsius</item>
         <item>fahrenheit</item>
     </string-array>
+    <string-array name="uk_news_sources">
+        <item>BBC</item>
+        <item>The Guardian</item>
+        <item>Sky News</item>
+        <item>The Independent</item>
+        <item>Telegraph</item>
+        <item>Daily Mail</item>
+        <item>Mirror</item>
+        <item>Financial Times</item>
+        <item>The Sun</item>
+        <item>Metro</item>
+        <item>Standard</item>
+    </string-array>
     <string-array name="fun_facts">
         <item>Honey never spoils.</item>
         <item>Bananas are berries, but strawberries aren\'t.</item>

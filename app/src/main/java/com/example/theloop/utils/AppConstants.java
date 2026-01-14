@@ -14,6 +14,7 @@ public final class AppConstants {
     public static final String KEY_SECTION_ORDER = "section_order";
     public static final String KEY_SUMMARY_CACHE = "summary_cache";
     public static final String KEY_FIRST_RUN = "is_first_run";
+    public static final String KEY_ONBOARDING_COMPLETED = "onboarding_completed";
     public static final String KEY_USER_NAME = "user_name";
 
     public static final String DEFAULT_TEMP_UNIT = "celsius";
