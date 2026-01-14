@@ -93,7 +93,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         } else if (holder instanceof WeatherViewHolder weatherHolder) {
             binder.bindWeather(weatherHolder);
         } else if (holder instanceof HeadlinesViewHolder headlinesHolder) {
-            if (getItemViewType(position) == TYPE_UK_NEWS) {
+            if (holder.getItemViewType() == TYPE_UK_NEWS) {
                 binder.bindUkNews(headlinesHolder);
             } else {
                 binder.bindHeadlines(headlinesHolder);
