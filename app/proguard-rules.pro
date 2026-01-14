@@ -12,7 +12,12 @@
 -keep class com.google.gson.stream.** { *; }
 
 # Application classes that will be serialized/deserialized over Gson
--keep class com.example.theloop.models.** { *; }
+-keep class com.example.theloop.models.Article { *; }
+-keep class com.example.theloop.models.CurrentWeather { *; }
+-keep class com.example.theloop.models.DailyWeather { *; }
+-keep class com.example.theloop.models.FunFactResponse { *; }
+-keep class com.example.theloop.models.NewsResponse { *; }
+-keep class com.example.theloop.models.WeatherResponse { *; }
 
 # Retrofit API Interfaces
 -keep interface com.example.theloop.network.**ApiService { *; }
