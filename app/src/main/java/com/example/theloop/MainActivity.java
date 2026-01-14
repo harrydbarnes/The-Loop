@@ -169,6 +169,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
     private Map<String, Integer> sectionPositions;
     private String currentTempUnit;
     private String currentUserName;
+    private List<String> ukSources;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -190,6 +191,7 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
         // Initialize cached values
         currentTempUnit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT);
         currentUserName = prefs.getString(AppConstants.KEY_USER_NAME, "");
+        ukSources = new ArrayList<>(Arrays.asList(getResources().getStringArray(R.array.uk_news_sources)));
 
         initHealthConnect();
         textToSpeech = new TextToSpeech(this, this);
@@ -670,7 +672,6 @@ public class MainActivity extends AppCompatActivity implements DashboardAdapter.
 
     private void displayUkNews(DashboardAdapter.HeadlinesViewHolder holder, NewsResponse response) {
         if (holder == null) return;
-        List<String> ukSources = Arrays.asList(getResources().getStringArray(R.array.uk_news_sources));
 
         List<Article> allArticles = new ArrayList<>();
         if (response.getWorld() != null) allArticles.addAll(response.getWorld());
