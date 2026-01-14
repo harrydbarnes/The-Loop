@@ -21,9 +21,12 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
 import com.example.theloop.utils.AppConstants
 import com.google.android.material.textfield.TextInputEditText
-import kotlin.reflect.KClass
 
 class OnboardingActivity : AppCompatActivity() {
+
+    companion object {
+        private const val TAG = "OnboardingActivity"
+    }
 
     private lateinit var stepViews: Array<View>
     private lateinit var dots: Array<ImageView>
@@ -138,7 +141,7 @@ class OnboardingActivity : AppCompatActivity() {
                  try {
                      startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
                  } catch (e: Exception) {
-                     android.util.Log.e("OnboardingActivity", "Failed to open Play Store for Health Connect", e)
+                     android.util.Log.e(TAG, "Failed to open Play Store for Health Connect", e)
                  }
             }
         }
