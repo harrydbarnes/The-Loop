@@ -44,8 +44,8 @@ class WidgetUpdateWorker @AssistedInject constructor(
 
             // Update Data (saves to DB)
             weatherRepo.refresh(lat, lon, unit)
-            try { newsRepo.refreshNews() } catch (e: Exception) {}
-            try { calendarRepo.refreshEvents() } catch (e: Exception) {}
+            try { newsRepo.refreshNews() } catch (e: Exception) { android.util.Log.e("WidgetUpdateWorker", "Failed to refresh news", e) }
+            try { calendarRepo.refreshEvents() } catch (e: Exception) { android.util.Log.e("WidgetUpdateWorker", "Failed to refresh calendar", e) }
 
             // Get latest data for summary
             val weather = weatherRepo.weatherData.first()
