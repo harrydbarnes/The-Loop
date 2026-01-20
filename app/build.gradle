@@ -1,6 +1,8 @@
 plugins {
-    id 'org.jetbrains.kotlin.android' version '1.9.10'
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt' version '1.9.10'
+    id 'com.google.dagger.hilt.android'
 }
 
 android {
@@ -16,6 +18,14 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
 
     buildTypes {
@@ -75,6 +85,38 @@ dependencies {
     implementation 'com.google.android.gms:play-services-location:21.0.1'
 
     // ViewModel and LiveData
-    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.6.2'
-    implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:2.7.0"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0"
+
+    // Compose
+    def composeBom = platform('androidx.compose:compose-bom:2024.02.01')
+    implementation composeBom
+    androidTestImplementation composeBom
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    implementation 'androidx.activity:activity-compose:1.8.2'
+    implementation 'androidx.compose.material:material-icons-extended'
+
+    // Hilt
+    implementation "com.google.dagger:hilt-android:2.51.1"
+    kapt "com.google.dagger:hilt-compiler:2.51.1"
+    implementation 'androidx.hilt:hilt-navigation-compose:1.2.0'
+    implementation 'androidx.hilt:hilt-work:1.2.0'
+    kapt 'androidx.hilt:hilt-compiler:1.2.0'
+
+    // Room
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    kapt "androidx.room:room-compiler:$room_version"
+
+    // Coil
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // DataStore
+    implementation "androidx.datastore:datastore-preferences:1.0.0"
 }
