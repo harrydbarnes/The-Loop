@@ -53,7 +53,7 @@ fun HomeScreen(
                     weather = state.weather,
                     locationName = state.locationName,
                     tempUnit = state.tempUnit,
-                    onClick = { viewModel.openWeatherSettings() }
+                    onClick = { /* TODO: Implement navigation to settings */ }
                 )
             }
 
