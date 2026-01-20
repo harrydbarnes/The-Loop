@@ -79,7 +79,7 @@ class WidgetUpdateWorker @AssistedInject constructor(
 
             Result.success()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("WidgetUpdateWorker", "Widget update failed", e)
             Result.retry()
         }
     }
