@@ -37,7 +37,7 @@ class DayAheadWidget : AppWidgetProvider() {
                     updateAppWidget(context, appWidgetManager, appWidgetId, weatherEntity?.json, summary, gson)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("DayAheadWidget", "Error in onUpdate", e)
             } finally {
                 pendingResult.finish()
             }
