@@ -88,7 +88,7 @@ fun HomeScreen(
                             try {
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                // Handle exception
+                                android.widget.Toast.makeText(context, "Could not open link", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
