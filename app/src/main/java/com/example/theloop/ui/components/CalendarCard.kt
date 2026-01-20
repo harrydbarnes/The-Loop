@@ -4,11 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.text.format.DateUtils
 import com.example.theloop.models.CalendarEvent
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun CalendarCard(
@@ -34,11 +33,12 @@ fun CalendarCard(
 @Composable
 fun EventItem(event: CalendarEvent) {
     Row(Modifier.padding(vertical = 8.dp)) {
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val context = LocalContext.current
+        val timeString = DateUtils.formatDateTime(context, event.startTime, DateUtils.FORMAT_SHOW_TIME)
         Text(
-            text = timeFormat.format(Date(event.startTime)),
+            text = timeString,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.width(60.dp)
+            modifier = Modifier.width(75.dp)
         )
         Column {
             Text(text = event.title, style = MaterialTheme.typography.bodyLarge)

@@ -54,6 +54,7 @@ class MainViewModel @Inject constructor(
     private val _userName = MutableStateFlow(prefs.getString(AppConstants.KEY_USER_NAME, "User") ?: "User")
 
     val weather = weatherRepo.weatherData
+    // TODO: Re-implement category selection (regression). Hardcoded to "US" for now.
     val news = newsRepo.getArticles("US") // Default to US or General
     val events = calendarRepo.events
 

@@ -1,5 +1,6 @@
 package com.example.theloop.data.repository
 
+import android.util.Log
 import com.example.theloop.data.local.dao.ArticleDao
 import com.example.theloop.data.local.entity.ArticleEntity
 import com.example.theloop.models.Article
@@ -45,9 +46,13 @@ class NewsRepository @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Error refreshing news", e)
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "NewsRepository"
     }
 
     private fun Article.toEntity(category: String): ArticleEntity {

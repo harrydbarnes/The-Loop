@@ -2,6 +2,7 @@ package com.example.theloop.data.repository
 
 import android.content.Context
 import android.provider.CalendarContract
+import android.util.Log
 import com.example.theloop.data.local.dao.CalendarEventDao
 import com.example.theloop.data.local.entity.CalendarEventEntity
 import com.example.theloop.models.CalendarEvent
@@ -85,8 +86,12 @@ class CalendarRepository @Inject constructor(
                     dao.insertEvents(events)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Error refreshing events", e)
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "CalendarRepository"
     }
 }

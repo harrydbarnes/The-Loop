@@ -1,5 +1,6 @@
 package com.example.theloop.data.repository
 
+import android.util.Log
 import com.example.theloop.data.local.dao.WeatherDao
 import com.example.theloop.data.local.entity.WeatherEntity
 import com.example.theloop.models.WeatherResponse
@@ -48,8 +49,12 @@ class WeatherRepository @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Error refreshing weather", e)
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "WeatherRepository"
     }
 }
