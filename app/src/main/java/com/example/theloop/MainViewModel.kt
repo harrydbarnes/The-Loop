@@ -158,9 +158,9 @@ class MainViewModel @Inject constructor(
                          val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
                          _locationName.value = name
                      }
-                 } catch (e: Exception) {
-                     _locationName.value = "Unknown Location"
-                 }
+                } catch (e: Exception) {
+                    _locationName.value = "Unknown Location"
+                }
              }
         }
     }
