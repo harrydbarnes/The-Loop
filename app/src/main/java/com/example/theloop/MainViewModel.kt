@@ -25,8 +25,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 data class MainUiState(
     val weather: WeatherResponse? = null,
@@ -174,11 +176,16 @@ class MainViewModel @Inject constructor(
                  try {
                      val geocoder = Geocoder(context, java.util.Locale.getDefault())
                      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                         geocoder.getFromLocation(lat, lon, 1) { addresses ->
-                             if (addresses.isNotEmpty()) {
-                                 val address = addresses[0]
-                                 val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
-                                 _locationName.value = name
+                         suspendCancellableCoroutine { cont ->
+                             geocoder.getFromLocation(lat, lon, 1) { addresses ->
+                                 if (addresses.isNotEmpty()) {
+                                     val address = addresses[0]
+                                     val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
+                                     _locationName.value = name
+                                 }
+                                 if (cont.isActive) {
+                                     cont.resume(Unit)
+                                 }
                              }
                          }
                      } else {
