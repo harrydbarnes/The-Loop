@@ -32,6 +32,7 @@ class CalendarRepository @Inject constructor(
                         android.Manifest.permission.READ_CALENDAR
                     ) != android.content.pm.PackageManager.PERMISSION_GRANTED
                 ) {
+                    // Return true to prevent WidgetUpdateWorker from retrying indefinitely
                     return@withContext true
                 }
 

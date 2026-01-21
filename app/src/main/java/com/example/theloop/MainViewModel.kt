@@ -134,6 +134,14 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun updateLocation(lat: Double, lon: Double) {
+        prefs.edit()
+            .putString(AppConstants.KEY_LATITUDE, lat.toString())
+            .putString(AppConstants.KEY_LONGITUDE, lon.toString())
+            .apply()
+        refreshAll()
+    }
+
     fun setNewsCategory(category: String) {
         _newsCategory.value = category
     }
@@ -165,12 +173,22 @@ class MainViewModel @Inject constructor(
              withContext(Dispatchers.IO) {
                  try {
                      val geocoder = Geocoder(context, java.util.Locale.getDefault())
-                     @Suppress("DEPRECATION")
-                     val addresses = geocoder.getFromLocation(lat, lon, 1)
-                     if (!addresses.isNullOrEmpty()) {
-                         val address = addresses[0]
-                         val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
-                         _locationName.value = name
+                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                         geocoder.getFromLocation(lat, lon, 1) { addresses ->
+                             if (addresses.isNotEmpty()) {
+                                 val address = addresses[0]
+                                 val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
+                                 _locationName.value = name
+                             }
+                         }
+                     } else {
+                         @Suppress("DEPRECATION")
+                         val addresses = geocoder.getFromLocation(lat, lon, 1)
+                         if (!addresses.isNullOrEmpty()) {
+                             val address = addresses[0]
+                             val name = address.locality ?: address.subAdminArea ?: "Unknown Location"
+                             _locationName.value = name
+                         }
                      }
                 } catch (e: Exception) {
                     _locationName.value = "Unknown Location"

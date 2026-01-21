@@ -30,14 +30,20 @@ class NewsRepository @Inject constructor(
                     if (news != null) {
                         val allArticles = mutableListOf<ArticleEntity>()
                         // Map each category
-                        news.business?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Business") }) }
-                        news.entertainment?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Entertainment") }) }
-                        news.health?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Health") }) }
-                        news.science?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Science") }) }
-                        news.sports?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Sports") }) }
-                        news.technology?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Technology") }) }
-                        news.us?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("US") }) }
-                        news.world?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("World") }) }
+                        fun addArticles(category: String, articles: List<Article>?) {
+                            articles?.filter { !it.title.isNullOrBlank() }
+                                ?.map { it.toEntity(category) }
+                                ?.let { allArticles.addAll(it) }
+                        }
+
+                        addArticles("Business", news.business)
+                        addArticles("Entertainment", news.entertainment)
+                        addArticles("Health", news.health)
+                        addArticles("Science", news.science)
+                        addArticles("Sports", news.sports)
+                        addArticles("Technology", news.technology)
+                        addArticles("US", news.us)
+                        addArticles("World", news.world)
 
                         if (allArticles.isNotEmpty()) {
                             dao.replaceAll(allArticles)
