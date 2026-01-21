@@ -32,8 +32,7 @@ class CalendarRepository @Inject constructor(
                         android.Manifest.permission.READ_CALENDAR
                     ) != android.content.pm.PackageManager.PERMISSION_GRANTED
                 ) {
-                    return@withContext true
-                }
+                    return@withContext false
 
                 val events = ArrayList<CalendarEventEntity>()
                 val contentResolver = context.contentResolver
