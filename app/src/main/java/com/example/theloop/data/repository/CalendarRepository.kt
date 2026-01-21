@@ -67,7 +67,7 @@ class CalendarRepository @Inject constructor(
                     val ownerIdx =
                         cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_DISPLAY_NAME)
 
-                    while (cursor.moveToNext() && events.size < 5) { // Limit to 5
+                    while (cursor.moveToNext() && events.size < MAX_EVENTS_TO_FETCH) {
                         events.add(
                             CalendarEventEntity(
                                 id = cursor.getLong(idIdx),
@@ -95,5 +95,6 @@ class CalendarRepository @Inject constructor(
 
     companion object {
         private const val TAG = "CalendarRepository"
+        private const val MAX_EVENTS_TO_FETCH = 5
     }
 }

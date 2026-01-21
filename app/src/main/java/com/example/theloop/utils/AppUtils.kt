@@ -28,6 +28,7 @@ object AppUtils {
         }
     }
 
+    @JvmStatic
     @StringRes
     fun getWeatherDescription(weatherCode: Int): Int {
         return when (weatherCode) {
@@ -46,6 +47,7 @@ object AppUtils {
         }
     }
 
+    @JvmStatic
     @DrawableRes
     fun getWeatherIconResource(weatherCode: Int): Int {
         return when (weatherCode) {

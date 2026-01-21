@@ -66,45 +66,34 @@ class MainViewModel @Inject constructor(
     val events = calendarRepo.events
 
     val uiState: StateFlow<MainUiState> = combine(
-        weather,
-        news,
-        events,
-        _funFact,
-        _locationName,
-        _userName,
-        _tempUnit,
-        _isLoading
-    ) { args ->
-        val weatherData = args[0] as? WeatherResponse
-        @Suppress("UNCHECKED_CAST")
-        val newsData = args[1] as List<Article>
-        @Suppress("UNCHECKED_CAST")
-        val calendarData = args[2] as List<CalendarEvent>
-        val funFactData = args[3] as? String
-        val locationName = args[4] as String
-        val userName = args[5] as String
-        val tempUnit = args[6] as String
-        val isLoading = args[7] as Boolean
-
-        val summaryText = if (weatherData != null) {
-            SummaryUtils.generateSummary(
-                context,
-                weatherData,
-                calendarData,
-                calendarData.size,
-                newsData.firstOrNull(),
-                userName,
-                false
-            )
-        } else null
-
+        weather, news, events, _funFact, _locationName
+    ) { weatherData, newsData, calendarData, funFactData, locationName ->
         MainUiState(
             weather = weatherData,
             newsArticles = newsData,
             calendarEvents = calendarData,
             funFact = funFactData,
+            locationName = locationName
+        )
+    }.combine(
+        combine(_userName, _tempUnit, _isLoading) { userName, tempUnit, isLoading ->
+            Triple(userName, tempUnit, isLoading)
+        }
+    ) { state, (userName, tempUnit, isLoading) ->
+        val summaryText = if (state.weather != null) {
+            SummaryUtils.generateSummary(
+                context,
+                state.weather,
+                state.calendarEvents,
+                state.calendarEvents.size,
+                state.newsArticles.firstOrNull(),
+                userName,
+                false
+            )
+        } else null
+
+        state.copy(
             summary = summaryText,
-            locationName = locationName,
             userGreeting = "${SummaryUtils.getTimeBasedGreeting()}, $userName",
             tempUnit = tempUnit,
             isLoading = isLoading

@@ -30,14 +30,14 @@ class NewsRepository @Inject constructor(
                     if (news != null) {
                         val allArticles = mutableListOf<ArticleEntity>()
                         // Map each category
-                        news.business?.let { allArticles.addAll(it.map { a -> a.toEntity("Business") }) }
-                        news.entertainment?.let { allArticles.addAll(it.map { a -> a.toEntity("Entertainment") }) }
-                        news.health?.let { allArticles.addAll(it.map { a -> a.toEntity("Health") }) }
-                        news.science?.let { allArticles.addAll(it.map { a -> a.toEntity("Science") }) }
-                        news.sports?.let { allArticles.addAll(it.map { a -> a.toEntity("Sports") }) }
-                        news.technology?.let { allArticles.addAll(it.map { a -> a.toEntity("Technology") }) }
-                        news.us?.let { allArticles.addAll(it.map { a -> a.toEntity("US") }) }
-                        news.world?.let { allArticles.addAll(it.map { a -> a.toEntity("World") }) }
+                        news.business?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Business") }) }
+                        news.entertainment?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Entertainment") }) }
+                        news.health?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Health") }) }
+                        news.science?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Science") }) }
+                        news.sports?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Sports") }) }
+                        news.technology?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("Technology") }) }
+                        news.us?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("US") }) }
+                        news.world?.filter { !it.title.isNullOrBlank() }?.let { allArticles.addAll(it.map { a -> a.toEntity("World") }) }
 
                         if (allArticles.isNotEmpty()) {
                             dao.replaceAll(allArticles)
