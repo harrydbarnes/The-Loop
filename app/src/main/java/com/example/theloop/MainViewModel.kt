@@ -74,7 +74,17 @@ class MainViewModel @Inject constructor(
         _userName,
         _tempUnit,
         _isLoading
-    ) { weatherData, newsData, calendarData, funFactData, locationName, userName, tempUnit, isLoading ->
+    ) { args ->
+        val weatherData = args[0] as? WeatherResponse
+        @Suppress("UNCHECKED_CAST")
+        val newsData = args[1] as List<Article>
+        @Suppress("UNCHECKED_CAST")
+        val calendarData = args[2] as List<CalendarEvent>
+        val funFactData = args[3] as? String
+        val locationName = args[4] as String
+        val userName = args[5] as String
+        val tempUnit = args[6] as String
+        val isLoading = args[7] as Boolean
 
         val summaryText = if (weatherData != null) {
             SummaryUtils.generateSummary(
