@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.example.theloop.data.local.entity.ArticleEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,4 +21,10 @@ interface ArticleDao {
 
     @Query("DELETE FROM articles")
     suspend fun clearAll()
+
+    @Transaction
+    suspend fun replaceAll(articles: List<ArticleEntity>) {
+        clearAll()
+        insertArticles(articles)
+    }
 }

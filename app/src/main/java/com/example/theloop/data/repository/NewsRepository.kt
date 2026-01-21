@@ -21,8 +21,8 @@ class NewsRepository @Inject constructor(
         }
     }
 
-    suspend fun refreshNews() {
-        withContext(Dispatchers.IO) {
+    suspend fun refreshNews(): Boolean {
+        return withContext(Dispatchers.IO) {
             try {
                 val response = api.getNewsFeed()
                 if (response.isSuccessful) {
@@ -40,13 +40,15 @@ class NewsRepository @Inject constructor(
                         news.world?.let { allArticles.addAll(it.map { a -> a.toEntity("World") }) }
 
                         if (allArticles.isNotEmpty()) {
-                            dao.clearAll()
-                            dao.insertArticles(allArticles)
+                            dao.replaceAll(allArticles)
                         }
+                        return@withContext true
                     }
                 }
+                return@withContext false
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing news", e)
+                return@withContext false
             }
         }
     }

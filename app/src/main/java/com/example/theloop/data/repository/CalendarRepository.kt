@@ -24,15 +24,15 @@ class CalendarRepository @Inject constructor(
         }
     }
 
-    suspend fun refreshEvents() {
-        withContext(Dispatchers.IO) {
+    suspend fun refreshEvents(): Boolean {
+        return withContext(Dispatchers.IO) {
             try {
                 if (androidx.core.content.ContextCompat.checkSelfPermission(
                         context,
                         android.Manifest.permission.READ_CALENDAR
                     ) != android.content.pm.PackageManager.PERMISSION_GRANTED
                 ) {
-                    return@withContext
+                    return@withContext true
                 }
 
                 val events = ArrayList<CalendarEventEntity>()
@@ -85,8 +85,10 @@ class CalendarRepository @Inject constructor(
                 if (events.isNotEmpty()) {
                     dao.insertEvents(events)
                 }
+                return@withContext true
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing events", e)
+                return@withContext false
             }
         }
     }

@@ -43,9 +43,9 @@ class WidgetUpdateWorker @AssistedInject constructor(
             val lon = lonStr.toDouble()
 
             // Update Data (saves to DB)
-            weatherRepo.refresh(lat, lon, unit)
-            try { newsRepo.refreshNews() } catch (e: Exception) { android.util.Log.e("WidgetUpdateWorker", "Failed to refresh news", e) }
-            try { calendarRepo.refreshEvents() } catch (e: Exception) { android.util.Log.e("WidgetUpdateWorker", "Failed to refresh calendar", e) }
+            val weatherSuccess = weatherRepo.refresh(lat, lon, unit)
+            val newsSuccess = newsRepo.refreshNews()
+            val calendarSuccess = calendarRepo.refreshEvents()
 
             // Get latest data for summary
             val weather = weatherRepo.weatherData.first()
@@ -77,7 +77,11 @@ class WidgetUpdateWorker @AssistedInject constructor(
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
             applicationContext.sendBroadcast(intent)
 
-            Result.success()
+            if (!weatherSuccess || !newsSuccess || !calendarSuccess) {
+                Result.retry()
+            } else {
+                Result.success()
+            }
         } catch (e: Exception) {
             android.util.Log.e("WidgetUpdateWorker", "Widget update failed", e)
             Result.retry()

@@ -20,9 +20,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class MainUiState(
@@ -48,14 +51,18 @@ class MainViewModel @Inject constructor(
 
     private val _locationName = MutableStateFlow("Loading...")
     private val _funFact = MutableStateFlow<String?>(null)
+    private val _isLoading = MutableStateFlow(false)
+    private val _newsCategory = MutableStateFlow("US")
 
     private val prefs = context.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
     private val _tempUnit = MutableStateFlow(prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT) ?: "celsius")
     private val _userName = MutableStateFlow(prefs.getString(AppConstants.KEY_USER_NAME, "User") ?: "User")
 
     val weather = weatherRepo.weatherData
-    // TODO: Re-implement category selection (regression). Hardcoded to "US" for now.
-    val news = newsRepo.getArticles("US") // Default to US or General
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val news = _newsCategory.flatMapLatest { category ->
+        newsRepo.getArticles(category)
+    }
     val events = calendarRepo.events
 
     val uiState: StateFlow<MainUiState> = combine(
@@ -65,8 +72,9 @@ class MainViewModel @Inject constructor(
         _funFact,
         _locationName,
         _userName,
-        _tempUnit
-    ) { weatherData, newsData, calendarData, funFactData, locationName, userName, tempUnit ->
+        _tempUnit,
+        _isLoading
+    ) { weatherData, newsData, calendarData, funFactData, locationName, userName, tempUnit, isLoading ->
 
         val summaryText = if (weatherData != null) {
             SummaryUtils.generateSummary(
@@ -88,7 +96,8 @@ class MainViewModel @Inject constructor(
             summary = summaryText,
             locationName = locationName,
             userGreeting = "${SummaryUtils.getTimeBasedGreeting()}, $userName",
-            tempUnit = tempUnit
+            tempUnit = tempUnit,
+            isLoading = isLoading
         )
     }.onEach { state ->
         if (state.summary != null) {
@@ -101,55 +110,60 @@ class MainViewModel @Inject constructor(
     )
 
     init {
-        refreshAll()
+        viewModelScope.launch {
+            refreshAll()
+        }
     }
 
     fun refreshAll() {
-        val latStr = prefs.getString(AppConstants.KEY_LATITUDE, AppConstants.DEFAULT_LATITUDE.toString())
-        val lonStr = prefs.getString(AppConstants.KEY_LONGITUDE, AppConstants.DEFAULT_LONGITUDE.toString())
-
-        val lat = try { latStr?.toDouble() ?: AppConstants.DEFAULT_LATITUDE } catch (e: Exception) { AppConstants.DEFAULT_LATITUDE }
-        val lon = try { lonStr?.toDouble() ?: AppConstants.DEFAULT_LONGITUDE } catch (e: Exception) { AppConstants.DEFAULT_LONGITUDE }
-
-        fetchWeather(lat, lon)
-        fetchNews()
-        fetchCalendar()
-        fetchFunFact()
-    }
-
-    fun fetchWeather(lat: Double, lon: Double) {
-         viewModelScope.launch {
-             fetchLocationName(lat, lon)
-             weatherRepo.refresh(lat, lon, _tempUnit.value)
-         }
-    }
-
-    fun fetchNews() {
         viewModelScope.launch {
-            newsRepo.refreshNews()
+            _isLoading.value = true
+            val latStr = prefs.getString(AppConstants.KEY_LATITUDE, AppConstants.DEFAULT_LATITUDE.toString())
+            val lonStr = prefs.getString(AppConstants.KEY_LONGITUDE, AppConstants.DEFAULT_LONGITUDE.toString())
+
+            val lat = try { latStr?.toDouble() ?: AppConstants.DEFAULT_LATITUDE } catch (e: Exception) { AppConstants.DEFAULT_LATITUDE }
+            val lon = try { lonStr?.toDouble() ?: AppConstants.DEFAULT_LONGITUDE } catch (e: Exception) { AppConstants.DEFAULT_LONGITUDE }
+
+            val jobs = listOf(
+                launch { fetchWeather(lat, lon) },
+                launch { fetchNews() },
+                launch { fetchCalendar() },
+                launch { fetchFunFact() }
+            )
+            jobs.joinAll()
+            _isLoading.value = false
         }
     }
 
-    fun fetchCalendar() {
-        viewModelScope.launch {
-            calendarRepo.refreshEvents()
+    fun setNewsCategory(category: String) {
+        _newsCategory.value = category
+    }
+
+    suspend fun fetchWeather(lat: Double, lon: Double) {
+         fetchLocationName(lat, lon)
+         weatherRepo.refresh(lat, lon, _tempUnit.value)
+    }
+
+    suspend fun fetchNews() {
+        newsRepo.refreshNews()
+    }
+
+    suspend fun fetchCalendar() {
+        calendarRepo.refreshEvents()
+    }
+
+    suspend fun fetchFunFact() {
+        val fact = funFactRepo.getFunFact()
+        if (fact != null) {
+            _funFact.value = fact
+        } else {
+             _funFact.value = context.getString(R.string.fun_fact_fallback)
         }
     }
 
-    fun fetchFunFact() {
-        viewModelScope.launch {
-            val fact = funFactRepo.getFunFact()
-            if (fact != null) {
-                _funFact.value = fact
-            } else {
-                 _funFact.value = context.getString(R.string.fun_fact_fallback)
-            }
-        }
-    }
-
-    private fun fetchLocationName(lat: Double, lon: Double) {
+    private suspend fun fetchLocationName(lat: Double, lon: Double) {
         if (Geocoder.isPresent()) {
-             viewModelScope.launch(Dispatchers.IO) {
+             withContext(Dispatchers.IO) {
                  try {
                      val geocoder = Geocoder(context, java.util.Locale.getDefault())
                      @Suppress("DEPRECATION")

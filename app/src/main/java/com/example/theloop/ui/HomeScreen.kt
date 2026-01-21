@@ -53,7 +53,12 @@ fun HomeScreen(
                     weather = state.weather,
                     locationName = state.locationName,
                     tempUnit = state.tempUnit,
-                    onClick = { /* TODO: Implement navigation to settings */ }
+                    onClick = {
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    }
                 )
             }
 

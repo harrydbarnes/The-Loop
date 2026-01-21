@@ -29,8 +29,8 @@ class WeatherRepository @Inject constructor(
         }
     }
 
-    suspend fun refresh(lat: Double, lon: Double, unit: String) {
-        withContext(Dispatchers.IO) {
+    suspend fun refresh(lat: Double, lon: Double, unit: String): Boolean {
+        return withContext(Dispatchers.IO) {
             try {
                 // Ensure timezone is valid, "auto" works for Open-Meteo
                 val response = api.getWeather(
@@ -46,10 +46,13 @@ class WeatherRepository @Inject constructor(
                     if (body != null) {
                         val json = gson.toJson(body)
                         dao.insertWeather(WeatherEntity(id = 0, json = json, lastUpdated = System.currentTimeMillis()))
+                        return@withContext true
                     }
                 }
+                return@withContext false
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing weather", e)
+                return@withContext false
             }
         }
     }
