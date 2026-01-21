@@ -62,7 +62,7 @@ class DayAheadWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_temp, "%.0f°".format(current.temperature))
                 views.setImageViewResource(R.id.widget_weather_icon, AppUtils.getWeatherIconResource(current.weatherCode))
             } catch (e: Exception) {
-                android.util.Log.e("DayAheadWidget", "Error parsing weather JSON for widget", e)
+                e.printStackTrace()
             }
         }
 
