@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.theloop.MainViewModel
+import com.example.theloop.SettingsActivity
 import com.example.theloop.ui.components.CalendarCard
 import com.example.theloop.ui.components.NewsCard
 import com.example.theloop.ui.components.WeatherCard
@@ -54,9 +55,7 @@ fun HomeScreen(
                     locationName = state.locationName,
                     tempUnit = state.tempUnit,
                     onClick = {
-                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
+                        val intent = Intent(context, SettingsActivity::class.java)
                         context.startActivity(intent)
                     }
                 )
