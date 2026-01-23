@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.widget.RemoteViews
+import com.example.theloop.data.repository.UserPreferencesRepository
 import com.example.theloop.data.repository.WeatherRepository
 import com.example.theloop.models.WeatherResponse
 import com.example.theloop.utils.AppConstants
@@ -21,14 +22,16 @@ class DayAheadWidget : AppWidgetProvider() {
     @Inject
     lateinit var weatherRepository: WeatherRepository
 
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val pendingResult = goAsync()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val weather = weatherRepository.weatherData.first()
-                val summary = context.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-                    .getString(AppConstants.KEY_SUMMARY_CACHE, context.getString(R.string.widget_default_summary))
+                val summary = userPreferencesRepository.summary.first()
 
                 for (appWidgetId in appWidgetIds) {
                     updateAppWidget(context, appWidgetManager, appWidgetId, weather, summary)

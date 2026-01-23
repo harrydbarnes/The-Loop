@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.theloop.data.repository.CalendarRepository
 import com.example.theloop.data.repository.NewsRepository
+import com.example.theloop.data.repository.UserPreferencesRepository
 import com.example.theloop.data.repository.WeatherRepository
 import com.example.theloop.utils.AppConstants
 import com.example.theloop.utils.SummaryUtils
@@ -24,23 +25,19 @@ class WidgetUpdateWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val weatherRepo: WeatherRepository,
     private val newsRepo: NewsRepository,
-    private val calendarRepo: CalendarRepository
+    private val calendarRepo: CalendarRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        val prefs = applicationContext.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-        val latStr = prefs.getString(AppConstants.KEY_LATITUDE, null)
-        val lonStr = prefs.getString(AppConstants.KEY_LONGITUDE, null)
-        val unit = prefs.getString(AppConstants.KEY_TEMP_UNIT, AppConstants.DEFAULT_TEMP_UNIT) ?: AppConstants.DEFAULT_TEMP_UNIT
-        val userName = prefs.getString(AppConstants.KEY_USER_NAME, "User") ?: "User"
-
-        if (latStr == null || lonStr == null) {
+        if (!userPreferencesRepository.hasLocation()) {
             return Result.success()
         }
 
         return try {
-            val lat = latStr.toDouble()
-            val lon = lonStr.toDouble()
+            val (lat, lon) = userPreferencesRepository.location.first()
+            val unit = userPreferencesRepository.tempUnit.first()
+            val userName = userPreferencesRepository.userName.first()
 
             // Update Data (saves to DB)
             val weatherSuccess = weatherRepo.refresh(lat, lon, unit)
@@ -66,7 +63,7 @@ class WidgetUpdateWorker @AssistedInject constructor(
             } else null
 
             if (summary != null) {
-                prefs.edit().putString(AppConstants.KEY_SUMMARY_CACHE, summary).apply()
+                userPreferencesRepository.saveSummary(summary)
             }
 
             // Trigger widget update

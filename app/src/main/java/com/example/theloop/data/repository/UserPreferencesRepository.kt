@@ -2,6 +2,7 @@ package com.example.theloop.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.theloop.R
 import com.example.theloop.utils.AppConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
@@ -36,6 +37,10 @@ class UserPreferencesRepository @Inject constructor(
         .map { prefs.getString(AppConstants.KEY_USER_NAME, "User") ?: "User" }
         .distinctUntilChanged()
 
+    val summary: Flow<String> = prefsChangeFlow
+        .map { prefs.getString(AppConstants.KEY_SUMMARY_CACHE, context.getString(R.string.widget_default_summary)) ?: context.getString(R.string.widget_default_summary) }
+        .distinctUntilChanged()
+
     val location: Flow<Pair<Double, Double>> = prefsChangeFlow
         .map {
             val latStr = prefs.getString(AppConstants.KEY_LATITUDE, AppConstants.DEFAULT_LATITUDE.toString())
@@ -55,6 +60,10 @@ class UserPreferencesRepository @Inject constructor(
 
     fun saveSummary(summary: String) {
         prefs.edit().putString(AppConstants.KEY_SUMMARY_CACHE, summary).apply()
+    }
+
+    fun hasLocation(): Boolean {
+        return prefs.contains(AppConstants.KEY_LATITUDE) && prefs.contains(AppConstants.KEY_LONGITUDE)
     }
 
     // Helper to get current location synchronously if needed (though Flow is better)
