@@ -140,8 +140,12 @@ class MainViewModel @Inject constructor(
     }
 
     suspend fun fetchWeather(lat: Double, lon: Double) {
-         fetchLocationName(lat, lon)
-         weatherRepo.refresh(lat, lon, userPrefsRepo.tempUnit.first())
+        try {
+            fetchLocationName(lat, lon)
+            weatherRepo.refresh(lat, lon, userPrefsRepo.tempUnit.first())
+        } catch (e: Exception) {
+            android.util.Log.e("MainViewModel", "Error fetching weather or location name", e)
+        }
     }
 
     suspend fun fetchNews() {
