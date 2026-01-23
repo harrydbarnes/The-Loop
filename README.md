@@ -1,3 +1,17 @@
+2.0 features:
+
+This pull request significantly refactors the application to modernize its architecture and UI. It introduces Jetpack Compose for the UI layer, Hilt for dependency injection, and Room for data persistence. The existing Java code is converted to Kotlin, leveraging coroutines and flows for asynchronous operations. The changes aim to improve the app's maintainability, scalability, and performance.
+
+Highlights:
+Dependency Updates: Updates dependencies to newer versions, including ViewModel, LiveData, Compose, Hilt, Room, and Coil.
+Compose Integration: Integrates Jetpack Compose for UI development, including necessary dependencies and build configurations.
+Hilt Dependency Injection: Adds Hilt for dependency injection, including dependencies, compiler configuration, and Android application setup.
+Kotlin Conversion: Converts DayAheadWidget.java and MainActivity.java to Kotlin, leveraging coroutines and flows.
+Room Persistence: Introduces Room for local data persistence, including entities, DAOs, and database setup.
+Repository Pattern: Implements a repository pattern for data access, including Weather, News, Calendar, FunFact, and UserPreferences.
+UI Architecture: Refactors the UI architecture to use Jetpack Compose and StateFlow for managing UI state.
+Widget Updates: Updates the widget to use Hilt and coroutines for asynchronous data loading
+
 # The Loop: An Expressive Daily Briefing App
 
 "The Loop" is a single-screen, mobile-first application designed for Android 16. Its primary function is to provide users with a clean, highly personalized, and visually engaging daily briefing. The app should be intuitive, fast, and delightful to use, adhering to the principles of Material 3 expressive design to create a unique and tailored experience for each user.
