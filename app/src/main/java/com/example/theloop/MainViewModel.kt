@@ -117,7 +117,7 @@ class MainViewModel @Inject constructor(
     fun refreshAll() {
         viewModelScope.launch {
             _isLoading.value = true
-            val (lat, lon) = userPrefsRepo.getLocationSync()
+            val (lat, lon) = userPrefsRepo.location.first()
 
             val jobs = listOf(
                 launch { fetchWeather(lat, lon) },
