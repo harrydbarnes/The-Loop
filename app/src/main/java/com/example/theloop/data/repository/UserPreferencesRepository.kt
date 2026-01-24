@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import com.example.theloop.R
 import com.example.theloop.utils.AppConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -62,11 +64,11 @@ class UserPreferencesRepository @Inject constructor(
         prefs.edit().putString(AppConstants.KEY_SUMMARY_CACHE, summary).apply()
     }
 
-    fun saveUserName(name: String) {
+    suspend fun saveUserName(name: String) = withContext(Dispatchers.IO) {
         prefs.edit().putString(AppConstants.KEY_USER_NAME, name).apply()
     }
 
-    fun completeOnboarding() {
+    suspend fun completeOnboarding() = withContext(Dispatchers.IO) {
         prefs.edit().putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true).apply()
     }
 
