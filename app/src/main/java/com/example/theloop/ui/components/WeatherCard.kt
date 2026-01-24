@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.example.theloop.models.WeatherResponse
 import com.example.theloop.utils.AppUtils
 import com.example.theloop.R

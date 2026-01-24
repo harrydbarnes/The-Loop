@@ -62,6 +62,14 @@ class UserPreferencesRepository @Inject constructor(
         prefs.edit().putString(AppConstants.KEY_SUMMARY_CACHE, summary).apply()
     }
 
+    fun saveUserName(name: String) {
+        prefs.edit().putString(AppConstants.KEY_USER_NAME, name).apply()
+    }
+
+    fun completeOnboarding() {
+        prefs.edit().putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true).apply()
+    }
+
     fun hasLocation(): Boolean {
         return prefs.contains(AppConstants.KEY_LATITUDE) && prefs.contains(AppConstants.KEY_LONGITUDE)
     }
