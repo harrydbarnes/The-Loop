@@ -14,7 +14,7 @@ fun NewsCard(
 ) {
     ElevatedCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).defaultMinSize(minHeight = 48.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(

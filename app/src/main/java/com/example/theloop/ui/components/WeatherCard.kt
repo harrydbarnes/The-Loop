@@ -23,7 +23,7 @@ fun WeatherCard(
 ) {
     ElevatedCard(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp)
     ) {
         if (weather == null) {
             Row(
@@ -65,7 +65,17 @@ fun WeatherCard(
                         style = MaterialTheme.typography.displayMedium
                     )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = description, style = MaterialTheme.typography.bodyLarge)
+                    Column {
+                        Text(text = description, style = MaterialTheme.typography.bodyLarge)
+                        if (weather.daily != null && weather.daily.temperatureMax.isNotEmpty() && weather.daily.temperatureMin.isNotEmpty()) {
+                            val max = Math.round(weather.daily.temperatureMax[0])
+                            val min = Math.round(weather.daily.temperatureMin[0])
+                            Text(
+                                text = "H: $max° L: $min°",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
                 }
             }
         }
