@@ -52,6 +52,7 @@
     </plurals>
 
     <string name="checking_your_day">Checking your day...</string>
+    <string name="loading_weather">Loading Weather...</string>
     <string name="loading_fun_fact">Loading fun fact...</string>
     <string name="health_connect_not_available">Health Connect not available</string>
     <string name="health_permission_denied_button">Permission Denied (Tap to Open Settings)</string>
