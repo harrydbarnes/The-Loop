@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -141,8 +142,12 @@ class MainViewModel @Inject constructor(
 
     suspend fun fetchWeather(lat: Double, lon: Double) {
         try {
-            fetchLocationName(lat, lon)
-            weatherRepo.refresh(lat, lon, userPrefsRepo.tempUnit.first())
+            // Bolt: Parallelize independent IO operations to reduce total latency.
+            // fetchLocationName uses Geocoder (IO/IPC), weatherRepo.refresh uses Network.
+            coroutineScope {
+                launch { fetchLocationName(lat, lon) }
+                launch { weatherRepo.refresh(lat, lon, userPrefsRepo.tempUnit.first()) }
+            }
         } catch (e: Exception) {
             android.util.Log.e("MainViewModel", "Error fetching weather or location name", e)
         }
