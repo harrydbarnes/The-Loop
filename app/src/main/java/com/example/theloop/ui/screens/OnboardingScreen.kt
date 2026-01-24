@@ -158,7 +158,7 @@ fun OnboardingScreen(
                             try {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
                             } catch (e: Exception) {
-                                // Log error
+                                android.util.Log.e("OnboardingScreen", "Failed to open Play Store for Health Connect", e)
                             }
                         }
                     }
