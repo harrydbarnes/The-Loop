@@ -65,7 +65,7 @@ class UserPreferencesRepository @Inject constructor(
     }
 
     suspend fun saveUserName(name: String) = withContext(Dispatchers.IO) {
-        prefs.edit().putString(AppConstants.KEY_USER_NAME, name).apply()
+        prefs.edit().putString(AppConstants.KEY_USER_NAME, name).commit()
     }
 
     suspend fun completeOnboarding() = withContext(Dispatchers.IO) {
