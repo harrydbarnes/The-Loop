@@ -23,8 +23,10 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun saveName() {
-        viewModelScope.launch {
-            userPreferencesRepository.saveUserName(name.value)
+        if (name.value.isNotBlank()) {
+            viewModelScope.launch {
+                userPreferencesRepository.saveUserName(name.value)
+            }
         }
     }
 

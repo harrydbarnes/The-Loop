@@ -98,9 +98,7 @@ fun OnboardingScreen(
                     Button(onClick = {
                         if (currentStep == 0) {
                             // Save Name
-                            if (name.isNotEmpty()) {
-                                viewModel.saveName()
-                            }
+                            viewModel.saveName()
                         }
 
                         if (currentStep < totalSteps - 1) {
