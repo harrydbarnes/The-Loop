@@ -69,7 +69,7 @@ class UserPreferencesRepository @Inject constructor(
     }
 
     suspend fun completeOnboarding() = withContext(Dispatchers.IO) {
-        prefs.edit().putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true).apply()
+        prefs.edit().putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true).commit()
     }
 
     fun hasLocation(): Boolean {
