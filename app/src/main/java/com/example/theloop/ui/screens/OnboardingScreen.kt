@@ -14,18 +14,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
-import com.example.theloop.utils.AppConstants
+import com.example.theloop.OnboardingViewModel
 
 @Composable
 fun OnboardingScreen(
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     var currentStep by remember { mutableIntStateOf(0) }
-    var name by remember { mutableStateOf("") }
+    val name by viewModel.name.collectAsState()
     val totalSteps = 5
 
     // Permissions state
@@ -97,10 +99,7 @@ fun OnboardingScreen(
                         if (currentStep == 0) {
                             // Save Name
                             if (name.isNotEmpty()) {
-                                context.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-                                    .edit()
-                                    .putString(AppConstants.KEY_USER_NAME, name)
-                                    .apply()
+                                viewModel.saveName()
                             }
                         }
 
@@ -108,10 +107,7 @@ fun OnboardingScreen(
                             currentStep++
                         } else {
                             // Finish
-                            context.getSharedPreferences(AppConstants.PREFS_NAME, Context.MODE_PRIVATE)
-                                .edit()
-                                .putBoolean(AppConstants.KEY_ONBOARDING_COMPLETED, true)
-                                .apply()
+                            viewModel.completeOnboarding()
                             onFinish()
                         }
                     }) {
@@ -130,7 +126,7 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.Center
         ) {
             when (currentStep) {
-                0 -> WelcomeStep(name) { name = it }
+                0 -> WelcomeStep(name, viewModel::onNameChange)
                 1 -> PermissionStep(
                     title = "Enable Location",
                     description = "We need your location to show local weather.",

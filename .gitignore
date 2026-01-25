@@ -13,3 +13,6 @@ local.properties
 *.jks
 *.keystore
 android-sdk/
+
+# Logs
+*.log
