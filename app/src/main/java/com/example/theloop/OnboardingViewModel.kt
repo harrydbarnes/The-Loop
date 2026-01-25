@@ -22,12 +22,14 @@ class OnboardingViewModel @Inject constructor(
         _name.value = newName
     }
 
-    fun saveName() {
+    fun saveName(): Boolean {
         if (name.value.isNotBlank()) {
             viewModelScope.launch {
                 userPreferencesRepository.saveUserName(name.value)
             }
+            return true
         }
+        return false
     }
 
     fun completeOnboarding() {
