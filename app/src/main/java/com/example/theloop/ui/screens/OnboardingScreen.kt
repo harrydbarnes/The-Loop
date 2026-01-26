@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.health.connect.client.HealthConnectClient
@@ -28,6 +29,7 @@ fun OnboardingScreen(
     val context = LocalContext.current
     var currentStep by remember { mutableIntStateOf(0) }
     val name by viewModel.name.collectAsState()
+    val nameError by viewModel.nameError.collectAsState()
     val totalSteps = 5
 
     // Permissions state
@@ -99,7 +101,6 @@ fun OnboardingScreen(
                         if (currentStep == 0) {
                             // Save Name
                             if (!viewModel.saveName()) {
-                                Toast.makeText(context, "Name cannot be blank", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                         }
@@ -127,7 +128,7 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.Center
         ) {
             when (currentStep) {
-                0 -> WelcomeStep(name, viewModel::onNameChange)
+                0 -> WelcomeStep(name, nameError, viewModel::onNameChange)
                 1 -> PermissionStep(
                     title = "Enable Location",
                     description = "We need your location to show local weather.",
@@ -167,7 +168,7 @@ fun OnboardingScreen(
 }
 
 @Composable
-fun WelcomeStep(name: String, onNameChange: (String) -> Unit) {
+fun WelcomeStep(name: String, nameError: Int?, onNameChange: (String) -> Unit) {
     Text("Welcome to The Loop", style = MaterialTheme.typography.displaySmall)
     Spacer(Modifier.height(16.dp))
     Text("Your daily dashboard for life.", style = MaterialTheme.typography.bodyLarge)
@@ -177,7 +178,9 @@ fun WelcomeStep(name: String, onNameChange: (String) -> Unit) {
         onValueChange = onNameChange,
         label = { Text("What's your name?") },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        isError = nameError != null,
+        supportingText = nameError?.let { { Text(stringResource(it)) } }
     )
 }
 

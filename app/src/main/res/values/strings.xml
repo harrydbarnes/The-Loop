@@ -2,6 +2,7 @@
     <string name="app_name">The Loop</string>
 
     <!-- UI Strings -->
+    <string name="error_name_blank">Name cannot be blank</string>
     <string name="select_temperature_unit">Select Temperature Unit</string>
     <string name="cancel">Cancel</string>
     <string name="unknown_location">Unknown Location</string>
