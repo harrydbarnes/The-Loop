@@ -98,8 +98,9 @@ fun OnboardingScreen(
                     Button(onClick = {
                         if (currentStep == 0) {
                             // Save Name
-                            if (name.isNotEmpty()) {
-                                viewModel.saveName()
+                            if (!viewModel.saveName()) {
+                                Toast.makeText(context, "Name cannot be blank", Toast.LENGTH_SHORT).show()
+                                return@Button
                             }
                         }
 
